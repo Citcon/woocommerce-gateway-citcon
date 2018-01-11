@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: CitconPay Gateway for WooCommerce
- * Plugin Name: 
+ * Plugin Name:
  * Description: Allows you to use AliPay and WechatPay through CitconPay Gateway
  * Version: 1.0.0
  * Author: citcon
@@ -18,21 +18,21 @@ function init_woocommerce_citconpay() {
     if ( ! class_exists( 'WC_Payment_Gateway' ) ) { return; }
 
 	class woocommerce_citconpay extends WC_Payment_Gateway{
-		
+
 		public function __construct() {
 
 			global $woocommerce;
-			
+
 			$plugin_dir = plugin_dir_url(__FILE__);
-	        
+
 	        $this->id               = 'citconpay';
 	        $this->icon     		= apply_filters( 'woocommerce_citconpay_icon', ''.$plugin_dir.'/citconpay_methods.png' );
 	        $this->has_fields       = true;
 
 	        $this->init_form_fields();
 	        $this->init_settings();
-	        
-	        // variables            
+
+	        // variables
 	        $this->title            = $this->settings['title'];
 			$this->token			= $this->settings['token'];
 			$this->mode             = $this->settings['mode'];
@@ -43,18 +43,18 @@ function init_woocommerce_citconpay() {
 			}else if( $this->mode == 'live' ){
 				$this->gateway_url = 'https://citconpay.com/chop/chop';
 			}
-	        
+
 	        // actions
 			add_action( 'woocommerce_receipt_citconpay', array( $this, 'receipt_page' ) );
 	        add_action( 'woocommerce_update_options_payment_gateways', array( $this, 'process_admin_options' ) );
 			add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 			add_action( 'woocommerce_api_wc_citconpay', array( $this, 'check_ipn_response' ) );
-			
+
 			if ( !$this->is_valid_for_use() ) {
-				$this->enabled = false; 
+				$this->enabled = false;
 			}
 		}
-			
+
 		/**
 		 * get_icon function.
 		 *
@@ -66,7 +66,7 @@ function init_woocommerce_citconpay() {
 			$icon = '';
 			if ( $this->icon ) {
 				$icon = '<img src="' . $this->force_ssl( $this->icon ) . '" alt="' . $this->title . '" />';
-			} 
+			}
 			return apply_filters( 'woocommerce_gateway_icon', $icon, $this->id );
 		}
 
@@ -74,22 +74,22 @@ function init_woocommerce_citconpay() {
 	     * Check if this gateway is enabled and available in the user's country
 	     */
 	    function is_valid_for_use() {
-	        if (!in_array(get_option('woocommerce_currency'), array('USD'))) 
+	        if (!in_array(get_option('woocommerce_currency'), array('USD')))
 	        	return false;
 
 	        return true;
 	    }
-	        
+
 	    /**
-	    * Admin Panel Options 
-	    **/       
+	    * Admin Panel Options
+	    **/
 	    public function admin_options()
 	    {
 			?>
 	        <h3><?php _e('CitconPay', 'woocommerce'); ?></h3>
 	        <p><?php _e('CitconPay Gateway supports AliPay and WeChatPay.', 'woocommerce'); ?></p>
 			<table class="form-table">
-	        <?php           
+	        <?php
 	    		if ( $this->is_valid_for_use() ) :
 
 	    			// Generate the HTML For the settings form.
@@ -111,31 +111,31 @@ function init_woocommerce_citconpay() {
 	    * Initialise CitconPay Settings Form Fields
 	    */
 	    public function init_form_fields() {
-	            
+
 			//  array to generate admin form
 	        $this->form_fields = array(
 	        	'enabled' => array(
-	            				'title' => __( 'Enable/Disable', 'woocommerce' ), 
-			                    'type' => 'checkbox', 
-			                    'label' => __( 'Enable CitconPay', 'woocommerce' ), 
+	            				'title' => __( 'Enable/Disable', 'woocommerce' ),
+			                    'type' => 'checkbox',
+			                    'label' => __( 'Enable CitconPay', 'woocommerce' ),
 			                    'default' => 'yes'
 							),
 				'title' => array(
-			                    'title' => __( 'Title', 'woocommerce' ), 
-			                    'type' => 'text', 
-			                    'description' => __('This is the title displayed to the user during checkout.', 'woocommerce' ), 
+			                    'title' => __( 'Title', 'woocommerce' ),
+			                    'type' => 'text',
+			                    'description' => __('This is the title displayed to the user during checkout.', 'woocommerce' ),
 			                    'default' => __( 'CitconPay', 'patsatech-woo-citconpay-server' )
 			                ),
 				'token' => array(
-								'title' => __( 'API Token', 'woocommerce' ), 
-								'type' => 'text', 
+								'title' => __( 'API Token', 'woocommerce' ),
+								'type' => 'text',
 								'description' => __( 'API Token', 'woocommerce' ),
 								'default' => ''
 				),
 				'mode' => array(
 								'title' => __('Mode', 'woocommerce'),
 			                    'type' => 'select',
-			                    'options' => array( 
+			                    'options' => array(
 													'test' => 'Test',
 													'live' => 'Live'
 													),
@@ -144,14 +144,14 @@ function init_woocommerce_citconpay() {
 							)
 				);
 		}
-	    
+
 		/**
 		 * Generate the citconpayserver button link
 		 **/
 	    public function generate_citconpay_form( $order_id ) {
 			global $woocommerce;
 	        $order = new WC_Order( $order_id );
-			
+
 			wc_enqueue_js('
 					jQuery("body").block({
 							message: "<img src=\"'.esc_url( $woocommerce->plugin_url() ).'/assets/images/ajax-loader.gif\" alt=\"Redirecting...\" style=\"float:left; margin-right: 10px;\" />'.__('Thank you for your order. We are now redirecting you to verify your card.', 'woothemes').'",
@@ -172,33 +172,34 @@ function init_woocommerce_citconpay() {
 						});
 					jQuery("#submit_citconpay_payment_form").click();
 				');
-				
+
 				return '<form action="'.esc_url( get_transient('citconpay_next_url') ).'" method="post" id="citconpay_payment_form">
 						<input type="submit" class="button alt" id="submit_citconpay_payment_form" value="'.__('Submit', 'woothemes').'" /> <a class="button cancel" href="'.esc_url( $order->get_cancel_order_url() ).'">'.__('Cancel order', 'woothemes').'</a>
 					</form>';
-			
+
 		}
-	    
+
 		/**
-		* 
+		*
 	    * process payment
-	    * 
+	    *
 	    */
 	    function process_payment( $order_id ) {
 			global $woocommerce;
-			
+
 	        $order = new WC_Order( $order_id );
-	        
+
 	        $time_stamp = date("YmdHis");
 	        $orderid = $time_stamp . "-" . $order_id;
 
 	        $nhp_arg[]=array();
 			$currency = get_option('woocommerce_currency');
 	        $nhp_arg['currency']=$currency;
+			$oder_total =  ( WC()->version < '2.7.0' ) ? $order->order_total : $order->get_total();
 			if($currency != 'JPY') {
-				$nhp_arg['amount']=$order->order_total * 100;
+				$nhp_arg['amount']=$oder_total * 100;
 			} else {
-				$nhp_arg['amount']=$order->order_total;
+				$nhp_arg['amount']=$oder_total;
 			}
 	        $nhp_arg['ipn_url']=$this->notify_url;
 	        $nhp_arg['callback_url_success']=$order->get_checkout_order_received_url();
@@ -209,23 +210,23 @@ function init_woocommerce_citconpay() {
 	        $nhp_arg['note']=$order_id;
                 $nbp_arg['allow_duplicates']='yes';
 
-			
+
 	        $post_values = "";
 	        foreach( $nhp_arg as $key => $value ) {
 	            $post_values .= "$key=" . $value . "&";
 	        }
 	        $post_values = rtrim( $post_values, "& " );
-	        
-	        $response = wp_remote_post($this->gateway_url, array( 
+
+	        $response = wp_remote_post($this->gateway_url, array(
 											'body' => $post_values,
 											'method' => 'POST',
 	                						'headers' => array( 'Content-Type' => 'application/x-www-form-urlencoded', 'Authorization' => 'Bearer '.$this->token ),
 											'sslverify' => FALSE
 											));
 
-			if (!is_wp_error($response)) { 
+			if (!is_wp_error($response)) {
 	        	$resp=$response['body'];
-	        	$redirect = $this->force_ssl( WP_PLUGIN_URL ."/" . plugin_basename( dirname(__FILE__) ) . '/redirect.php').'?res='. base64_encode(esc_attr($resp));			
+	        	$redirect = $this->force_ssl( WP_PLUGIN_URL ."/" . plugin_basename( dirname(__FILE__) ) . '/redirect.php').'?res='. base64_encode(esc_attr($resp));
 				return array(
 					'result' 	=> 'success',
 					'redirect'	=> $redirect
@@ -262,11 +263,11 @@ function init_woocommerce_citconpay() {
 		function receipt_page( $order ) {
 			global $woocommerce;
 			echo '<p>'.__('Thank you for your order.', 'woothemes').'</p>';
-			
+
 			echo $this->generate_citconpay_form( $order );
-			
+
 		}
-		
+
 		private function force_ssl($url){
 			if ( 'yes' == get_option( 'woocommerce_force_ssl_checkout' ) ) {
 				$url = str_replace( 'http:', 'https:', $url );
@@ -292,14 +293,14 @@ function init_woocommerce_citconpay() {
             	wp_die( "Payment failed. Please try again." );
             }
         }
-	} 
+	}
 
 	/**
 	 * Add the gateway to WooCommerce
 	 **/
-	function add_citconpay_gateway( $methods ) 
+	function add_citconpay_gateway( $methods )
 	{
-	    $methods[] = 'woocommerce_citconpay'; 
+	    $methods[] = 'woocommerce_citconpay';
 	    return $methods;
 	}
 	add_filter('woocommerce_payment_gateways', 'add_citconpay_gateway' );
