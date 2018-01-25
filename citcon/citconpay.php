@@ -26,7 +26,7 @@ function init_woocommerce_citconpay() {
 			$plugin_dir = plugin_dir_url(__FILE__);
 
 	        $this->id               = 'citconpay';
-	        $this->icon     		= apply_filters( 'woocommerce_citconpay_icon', ''.$plugin_dir.'/citconpay_methods.png' );
+	        $this->icon     		= apply_filters( 'woocommerce_citconpay_icon', ''.$plugin_dir.'citconpay_methods.png' );
 	        $this->has_fields       = true;
 
 	        $this->init_form_fields();
