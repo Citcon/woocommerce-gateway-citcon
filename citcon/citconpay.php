@@ -37,9 +37,9 @@ function init_woocommerce_citconpay() {
 			$this->token			= $this->settings['token'];
 			$this->mode             = $this->settings['mode'];
 			$this->currency         = $this->settings['currency'];
-	        $this->notify_url   	= str_replace( 'https:', 'http:', add_query_arg( 'wc-api', 'wc_citconpay', home_url( '/' ) ) );
+	        $this->notify_url   	= add_query_arg( 'wc-api', 'wc_citconpay', home_url( '/' ) );
 			if( $this->mode == 'test' ){
-				$this->gateway_url = 'https://dev.citconpay.com/chop/chop';
+				$this->gateway_url = 'https://uat.citconpay.com/chop/chop';
 			}else if( $this->mode == 'live' ){
 				$this->gateway_url = 'https://citconpay.com/chop/chop';
 			}
@@ -252,6 +252,15 @@ function init_woocommerce_citconpay() {
 					<li class="wc_payment_method">
 						<input id="citconpay_pay_method_wechatpay" class="input-radio" name="vendor" value="wechatpay" data-order_button_text="" type="radio" required>
 						<label for="citconpay_pay_method_wechatpay"> WechatPay </label>
+				   </li>
+				   <li class="wc_payment_method">
+						<input id="citconpay_pay_method_unionpay" class="input-radio" name="vendor" value="upop" data-order_button_text="" type="radio" required>
+						<label for="citconpay_pay_method_unionpay"> Unionpay </label>
+				   </li>
+				   <li class="wc_payment_method">
+						<input id="citconpay_pay_method_cc" class="input-radio" name="vendor" value="cc" data-order_button_text="" type="radio" required>
+						<label for="citconpay_pay_method_cc"> Credit Card </label>
+				   </li>
 				</ul>
 				<div class="clear"></div>
 				</fieldset>
@@ -287,7 +296,7 @@ function init_woocommerce_citconpay() {
             if($status == 'success'){
             	$wc_order->payment_complete();
             	$woocommerce->cart->empty_cart();
-            	wp_redirect( $this->get_return_url( $wc_order ) );
+            	//wp_redirect( $this->get_return_url( $wc_order ) ); //no need to redirect because it is aync notification
                 exit;
             }else{
             	wp_die( "Payment failed. Please try again." );
