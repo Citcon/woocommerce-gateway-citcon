@@ -231,15 +231,21 @@ function init_woocommerce_citconpay() {
 											));
 
 			if (!is_wp_error($response)) {
-	        	$resp=$response['body'];
-	        	$redirect = $this->force_ssl( WP_PLUGIN_URL ."/" . plugin_basename( dirname(__FILE__) ) . '/redirect.php').'?res='. base64_encode(esc_attr($resp));
-				return array(
-					'result' 	=> 'success',
-					'redirect'	=> $redirect
-				);
-	        }else{
-	        	$woocommerce->add_error( __('Gateway Error.', 'woocommerce') );
-	        }
+                $resp = $response['body'];
+                $result = json_decode($resp);
+                $redirect = wc_get_cart_url();;
+                if ($result->{'result'} == 'success') {
+                    $redirect = $result->{'url'};
+                } else {
+                    wc_add_notice(__('Error has occurred', 'woocommerce'), apply_filters('woocommerce_cart_updated_notice_type', 'error'));
+                }
+                return array(
+                    'result' => 'success',
+                    'redirect' => $redirect
+                );
+            } else {
+                $woocommerce->add_error(__('Gateway Error.', 'woocommerce'));
+            }
 		}
 		/**
 		 * Payment form on checkout page
