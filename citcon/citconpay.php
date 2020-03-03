@@ -3,7 +3,7 @@
  * Plugin Name: CitconPay Gateway for WooCommerce
  * Plugin Name:
  * Description: Allows you to use AliPay and WechatPay through CitconPay Gateway
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: citcon
  * Author URI: http://www.citcon.com
  *
@@ -36,7 +36,13 @@ function init_woocommerce_citconpay() {
 	        $this->title            = $this->settings['title'];
 			$this->token			= $this->settings['token'];
 			$this->mode             = $this->settings['mode'];
-			$this->currency         = $this->settings['currency'];
+            $this->supports           = array(
+                'products',
+                'refunds',
+            );
+			if (isset($this->settings['currency'])){
+                $this->currency         = $this->settings['currency'];
+            }
 	        $this->notify_url   	= add_query_arg( 'wc-api', 'wc_citconpay', home_url( '/' ) );
 			if( $this->mode == 'test' ){
 				$this->gateway_url = 'https://uat.citconpay.com/chop/chop';
@@ -225,15 +231,21 @@ function init_woocommerce_citconpay() {
 											));
 
 			if (!is_wp_error($response)) {
-	        	$resp=$response['body'];
-	        	$redirect = $this->force_ssl( WP_PLUGIN_URL ."/" . plugin_basename( dirname(__FILE__) ) . '/redirect.php').'?res='. base64_encode(esc_attr($resp));
-				return array(
-					'result' 	=> 'success',
-					'redirect'	=> $redirect
-				);
-	        }else{
-	        	$woocommerce->add_error( __('Gateway Error.', 'woocommerce') );
-	        }
+                $resp = $response['body'];
+                $result = json_decode($resp);
+                $redirect = wc_get_cart_url();;
+                if ($result->{'result'} == 'success') {
+                    $redirect = $result->{'url'};
+                } else {
+                    wc_add_notice(__('Error has occurred', 'woocommerce'), apply_filters('woocommerce_cart_updated_notice_type', 'error'));
+                }
+                return array(
+                    'result' => 'success',
+                    'redirect' => $redirect
+                );
+            } else {
+                $woocommerce->add_error(__('Gateway Error.', 'woocommerce'));
+            }
 		}
 		/**
 		 * Payment form on checkout page
@@ -253,14 +265,14 @@ function init_woocommerce_citconpay() {
 						<input id="citconpay_pay_method_wechatpay" class="input-radio" name="vendor" value="wechatpay" data-order_button_text="" type="radio" required>
 						<label for="citconpay_pay_method_wechatpay"> WechatPay </label>
 				   </li>
-				   <li class="wc_payment_method">
+				   <!--<li class="wc_payment_method">
 						<input id="citconpay_pay_method_unionpay" class="input-radio" name="vendor" value="upop" data-order_button_text="" type="radio" required>
 						<label for="citconpay_pay_method_unionpay"> Unionpay </label>
 				   </li>
 				   <li class="wc_payment_method">
 						<input id="citconpay_pay_method_cc" class="input-radio" name="vendor" value="cc" data-order_button_text="" type="radio" required>
 						<label for="citconpay_pay_method_cc"> Credit Card </label>
-				   </li>
+				   </li>-->
 				</ul>
 				<div class="clear"></div>
 				</fieldset>
@@ -288,19 +300,104 @@ function init_woocommerce_citconpay() {
             global $woocommerce;
             @ob_clean();
             //$note = $_REQUEST['note'];
+            $transactionId = $_REQUEST['id'];
             $status=$_REQUEST['notify_status'];
             $reference=$_REQUEST['reference'];
             $order_ids=explode('-', $reference);
             $wc_order   = new WC_Order( absint( $order_ids[1] ) );
+            if(!$this->validateSignature()){
+                wp_die( "Invalid signature." );
+            }
 
             if($status == 'success'){
-            	$wc_order->payment_complete();
+            	$wc_order->payment_complete($transactionId);
             	$woocommerce->cart->empty_cart();
             	//wp_redirect( $this->get_return_url( $wc_order ) ); //no need to redirect because it is aync notification
                 exit;
             }else{
             	wp_die( "Payment failed. Please try again." );
             }
+        }
+        protected function validateSignature()
+        {
+            $fields = $_REQUEST['fields'];
+            $data['fields'] = $fields;
+            $tok = strtok($fields, ",");
+            while ($tok !== false) {
+                $data[$tok] = $_REQUEST[$tok];
+                $tok = strtok(",");
+            }
+            ksort($data);
+            $flat_reply = "";
+            foreach ($data as $key => $value) {
+                $flat_reply = $flat_reply . "$key=$value&";
+            }
+            $flat_reply = $flat_reply . "token={$this->token}";
+            $signature = md5($flat_reply);
+            return ($signature == $_REQUEST['sign']);
+        }
+        /**
+         * Can the order be refunded
+         *
+         * @param  WC_Order $order Order object.
+         * @return bool
+         */
+        public function can_refund_order( $order ) {
+            $has_api_creds = !empty($this->token);
+            return $order && $order->get_transaction_id() && $has_api_creds;
+        }
+
+        /**
+         * Process a refund if supported.
+         *
+         * @param  int    $order_id Order ID.
+         * @param  float  $amount Refund amount.
+         * @param  string $reason Refund reason.
+         * @return bool|WP_Error
+         */
+        public function process_refund( $order_id, $amount = null, $reason = '' ) {
+            $order = wc_get_order( $order_id );
+
+            if ( ! $this->can_refund_order( $order ) ) {
+                return new WP_Error( 'error', __( 'Refund failed.', 'woocommerce' ) );
+            }
+
+            $request = [
+                'amount' => $amount * 100,
+                'currency' => $order->get_currency(),
+                'transaction_id' => $order->get_transaction_id(),
+                'reason' => $reason
+            ];
+
+            $post_values = http_build_query($request);
+
+            if( $this->mode == 'test' ){
+                $this->gateway_url_refund = 'https://uat.citconpay.com/chop/refund';
+            }else if( $this->mode == 'live' ){
+                $this->gateway_url_refund = 'https://citconpay.com/chop/refund';
+            }
+
+            $result = wp_remote_post($this->gateway_url_refund, array(
+                'body' => $post_values,
+                'method' => 'POST',
+                'headers' => array( 'Content-Type' => 'application/x-www-form-urlencoded', 'Authorization' => 'Bearer '.$this->token ),
+                'sslverify' => FALSE
+            ));
+
+            if ( is_wp_error( $result ) ) {
+                return new \WP_Error( 'error', $result->get_error_message() );
+            }
+            $result = json_decode($result['body']);
+            switch ( strtolower( $result->status ) ) {
+                case 'success':
+                    $order->add_order_note(
+                    /* translators: 1: Refund amount, 2: Refund ID */
+                        sprintf( __( 'Refunded %1$s - Refund ID: %2$s', 'woocommerce' ), $amount, $result->id )
+                    );
+                    return true;
+            }
+
+            return false;
         }
 	}
 
