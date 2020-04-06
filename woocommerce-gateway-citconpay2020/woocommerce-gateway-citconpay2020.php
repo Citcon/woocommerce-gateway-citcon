@@ -1,14 +1,14 @@
 <?php
 /**
- * Plugin Name: Citcon Gateway for WooCommerce
+ * Plugin Name: CitconPay Gateway for WooCommerce
  * Plugin Name:
- * Description: Allows you to use Alipay and Wechat Pay through Citcon Gateway
- * Version: 1.2.0
+ * Description: Allows you to use AliPay and WechatPay through CitconPay Gateway
+ * Version: 1.2
  * Author: citcon
  * Author URI: http://www.citcon.com
  *
- * @package Citcon Gateway for WooCommerce
- * @author citcon
+ * @package CitconPay Gateway for WooCommerce
+ * @author citconpay
  */
 
 add_action('plugins_loaded', 'init_woocommerce_citconpay', 0);

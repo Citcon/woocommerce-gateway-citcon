@@ -1,9 +1,2 @@
 
 .idea/*
-.project
-.settings*
-
-.DS_Store
-Thumbs.db
-
-/logs
