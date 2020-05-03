@@ -82,7 +82,7 @@ function init_woocommerce_citconpay() {
 		 * Check if this gateway is enabled and available in the user's country
 		 */
 		public function is_valid_for_use() {
-			if (!in_array(get_option('woocommerce_currency'), array('USD'))) {
+			if (!in_array(get_option('woocommerce_currency'), array('USD','CAD'))) {
 				return false;
 			}
 
