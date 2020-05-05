@@ -1,7 +1,11 @@
 *** CitconPay Gateway for WooCommerce Changelog ***
 
-2020-02-07 - version 1.1
-* Inital release
+= 2020-05-08 v1.3.0 =
+* Fixed bugs
+* Restructured directory
 
-2020-03-13 - version 1.2
+= 2020-03-13 v1.2.0 =
 * Added Unionpay
+
+= 2020-02-07 v1.1.0 =
+* Initial release
