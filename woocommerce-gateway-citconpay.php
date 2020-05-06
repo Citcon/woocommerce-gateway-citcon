@@ -190,6 +190,8 @@ function init_woocommerce_citconpay() {
 			//$nhp_arg['terminal']=$this->terminal;
 			$nhp_arg['note'] = $order_id;
 			$nbp_arg['allow_duplicates'] = 'yes';
+            $nhp_arg['source'] = 'woocommerce';
+            $nhp_arg['ext'] = sprintf('{"plugin":"1.0.1","woocommerce":%s,"wordpress":%s}',WC_VERSION,$GLOBALS["wp_version"]);
 
 
 			$post_values = '';
@@ -197,7 +199,7 @@ function init_woocommerce_citconpay() {
 				$post_values .= "$key=" . $value . '&';
 			}
 			$post_values = rtrim($post_values, '& ');
-
+            error_log('citcon request '.json_encode($post_values));
 			$response = wp_remote_post($this->gateway_url, array(
 				'body' => $post_values,
 				'method' => 'POST',
@@ -208,6 +210,7 @@ function init_woocommerce_citconpay() {
 			if (!is_wp_error($response)) {
 				$resp = $response['body'];
 				$result = json_decode($resp);
+                error_log('citcon is success '.$resp);
 				$redirect = wc_get_cart_url();
 				$successResult = 'success';
 				if ($result->{'result'} == $successResult) {
@@ -284,6 +287,7 @@ function init_woocommerce_citconpay() {
 			if (!$this->validateSignature()) {
 				wp_die('Invalid signature.');
 			}
+            error_log('citcon ipn_response  '.json_encode($_REQUEST));
 			$success = 'success';
 			if ($status == $success) {
 				$wc_order->payment_complete($transactionId);
@@ -376,6 +380,7 @@ function init_woocommerce_citconpay() {
 				return new \WP_Error('error', $result->get_error_message());
 			}
 			$result = json_decode($result['body']);
+            error_log('citcon is refund '.$result);
 			switch (strtolower($result->status)) {
 				case 'success':
 					$order->add_order_note(
