@@ -2,8 +2,8 @@
 /**
  * Plugin Name: CitconPay Gateway for WooCommerce
  * Plugin Name:
- * Description: Allows you to use AliPay and WechatPay through CitconPay Gateway
- * Version: 1.2
+ * Description: Allows you to use AliPay, WechatPay and UnionPay through CitconPay Gateway
+ * Version: 1.3.0
  * Author: citcon
  * Author URI: http://www.citcon.com
  *
@@ -12,6 +12,8 @@
  */
 
 add_action('plugins_loaded', 'init_woocommerce_citconpay', 0);
+define("WC_CITCON_GATEWAY_VERSION", "1.3.0");
+define("WC_CITCON_GATEWAY_LOG" , "[wc-citcon]");
 
 function init_woocommerce_citconpay() {
 
@@ -167,7 +169,7 @@ function init_woocommerce_citconpay() {
 			$time_stamp = gmdate('YmdHis');
 			$orderid = $time_stamp . '-' . $order_id;
 
-			$nhp_arg[] = array();
+			$nhp_arg = [];
 			$currency = get_option('woocommerce_currency');
 			$nhp_arg['currency'] = $currency;
 			$oder_total = ( WC()->version < '2.7.0' ) ? $order->order_total : $order->get_total();
@@ -190,14 +192,20 @@ function init_woocommerce_citconpay() {
 			//$nhp_arg['terminal']=$this->terminal;
 			$nhp_arg['note'] = $order_id;
 			$nbp_arg['allow_duplicates'] = 'yes';
-
+			$nhp_arg['source'] = 'woocommerce';
+			$ext_arg = [
+				"app_version" => WC_CITCON_GATEWAY_VERSION,
+				"woocommerce" => WC_VERSION,
+				"wordpress" => $GLOBALS["wp_version"]
+			];
+			$nhp_arg['ext'] = urlencode(json_encode($ext_arg));
 
 			$post_values = '';
 			foreach ($nhp_arg as $key => $value) {
 				$post_values .= "$key=" . $value . '&';
 			}
 			$post_values = rtrim($post_values, '& ');
-
+			$this->wc_citcon_log('[pay request] '.$post_values);
 			$response = wp_remote_post($this->gateway_url, array(
 				'body' => $post_values,
 				'method' => 'POST',
@@ -208,6 +216,7 @@ function init_woocommerce_citconpay() {
 			if (!is_wp_error($response)) {
 				$resp = $response['body'];
 				$result = json_decode($resp);
+				$this->wc_citcon_log('[pay response] '.$resp);
 				$redirect = wc_get_cart_url();
 				$successResult = 'success';
 				if ($result->{'result'} == $successResult) {
@@ -284,6 +293,7 @@ function init_woocommerce_citconpay() {
 			if (!$this->validateSignature()) {
 				wp_die('Invalid signature.');
 			}
+			$this->wc_citcon_log('[ipn notification] '.json_encode($_REQUEST));
 			$success = 'success';
 			if ($status == $success) {
 				$wc_order->payment_complete($transactionId);
@@ -365,6 +375,7 @@ function init_woocommerce_citconpay() {
 					break;
 			}
 
+			$this->wc_citcon_log('[refund request] '.$post_values);
 			$result = wp_remote_post($this->gateway_url_refund, array(
 				'body' => $post_values,
 				'method' => 'POST',
@@ -376,6 +387,7 @@ function init_woocommerce_citconpay() {
 				return new \WP_Error('error', $result->get_error_message());
 			}
 			$result = json_decode($result['body']);
+			$this->wc_citcon_log('[refund response] '.$result);
 			switch (strtolower($result->status)) {
 				case 'success':
 					$order->add_order_note(
@@ -386,6 +398,10 @@ function init_woocommerce_citconpay() {
 			}
 
 			return false;
+		}
+
+		private function wc_citcon_log($messge) {
+				error_log(WC_CITCON_GATEWAY_LOG . " $messge");
 		}
 	}
 
