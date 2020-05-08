@@ -216,7 +216,7 @@ function init_woocommerce_citconpay() {
 			if (!is_wp_error($response)) {
 				$resp = $response['body'];
 				$result = json_decode($resp);
-				$this->wc_citcon_log('[pay response] '.$resp);
+				$this->wc_citcon_log('[pay response] '.json_encode($resp));
 				$redirect = wc_get_cart_url();
 				$successResult = 'success';
 				if ($result->{'result'} == $successResult) {
@@ -386,8 +386,8 @@ function init_woocommerce_citconpay() {
 			if (is_wp_error($result)) {
 				return new \WP_Error('error', $result->get_error_message());
 			}
+			$this->wc_citcon_log('[refund response] '.json_encode($result));
 			$result = json_decode($result['body']);
-			$this->wc_citcon_log('[refund response] '.$result);
 			switch (strtolower($result->status)) {
 				case 'success':
 					$order->add_order_note(
