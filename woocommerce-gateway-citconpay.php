@@ -36,9 +36,11 @@ function init_woocommerce_citconpay() {
             $this->alipay = $this->settings['alipay'];
             $this->wechatpay = $this->settings['wechatpay'];
             $this->unionpay = $this->settings['unionpay'];
-            $imgalipay=strcmp($this->alipay,'yes')==0?'<img src="' . $plugin_dir . 'alipay.png'.'"/>':'';
-            $imgwechatpay=strcmp($this->wechatpay,'yes')==0?'<img src="' . $plugin_dir . 'wechat.png'.'"/>':'';
-            $imgunionpay=strcmp($this->unionpay,'yes')==0?'<img src="' . $plugin_dir . 'upop.png'.'"/>':'';
+
+            $imgalipay=strcmp($this->alipay,'yes')==0?'<img src="' . $plugin_dir . 'alipay.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
+            $imgwechatpay=strcmp($this->weichatpay,'yes')==0?'<img src="' . $plugin_dir . 'wechat.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
+            $imgunionpay=strcmp($this->unionpay,'yes')==0?'<img src="' . $plugin_dir . 'upop.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
+
             // variables
             $this->title ='<dev>'.$this->settings['title'].$imgunionpay.$imgwechatpay.$imgalipay.'</dev>';
 			$this->supports = array(
