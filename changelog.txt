@@ -1,5 +1,8 @@
 *** CitconPay Gateway for WooCommerce Changelog ***
 
+= 2020-12-30 v1.3.6 =
+* Add config
+
 = 2020-05-08 v1.3.0 =
 * Fixed bugs
 * Restructured directory
