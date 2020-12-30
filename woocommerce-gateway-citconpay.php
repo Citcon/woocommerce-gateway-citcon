@@ -22,6 +22,11 @@ function init_woocommerce_citconpay() {
 	}
 
 	class Woocommerce_Citconpay extends WC_Payment_Gateway {
+
+        public $alipay;
+        public $wechatpay;
+        public $unionpay;
+
 		public function __construct() {
 
 			global $woocommerce;
@@ -38,7 +43,7 @@ function init_woocommerce_citconpay() {
             $this->unionpay = $this->settings['unionpay'];
 
             $imgalipay=strcmp($this->alipay,'yes')==0?'<img src="' . $plugin_dir . 'alipay.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
-            $imgwechatpay=strcmp($this->weichatpay,'yes')==0?'<img src="' . $plugin_dir . 'wechat.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
+            $imgwechatpay=strcmp($this->wechatpay,'yes')==0?'<img src="' . $plugin_dir . 'wechat.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
             $imgunionpay=strcmp($this->unionpay,'yes')==0?'<img src="' . $plugin_dir . 'upop.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
 
             // variables
@@ -69,9 +74,6 @@ function init_woocommerce_citconpay() {
 				$this->enabled = false;
 			}
 		}
-        public $alipay;
-        public $wechatpay;
-        public $unionpay;
 
 		/**
 		 * Check if this gateway is enabled and available in the user's country
