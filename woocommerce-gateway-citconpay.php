@@ -3,7 +3,7 @@
  * Plugin Name: CitconPay Gateway for WooCommerce
  * Plugin Name:
  * Description: Allows you to use AliPay, WechatPay and UnionPay through CitconPay Gateway
- * Version: 1.3.0
+ * Version: 1.3.6
  * Author: citcon
  * Author URI: http://www.citcon.com
  *
@@ -12,7 +12,7 @@
  */
 
 add_action('plugins_loaded', 'init_woocommerce_citconpay', 0);
-define("WC_CITCON_GATEWAY_VERSION", "1.3.0");
+define("WC_CITCON_GATEWAY_VERSION", "1.3.6");
 define("WC_CITCON_GATEWAY_LOG" , "[wc-citcon]");
 
 function init_woocommerce_citconpay() {
@@ -27,18 +27,22 @@ function init_woocommerce_citconpay() {
 			global $woocommerce;
 
 			$plugin_dir = plugin_dir_url(__FILE__);
-
 			$this->id = 'citconpay';
-			$this->icon = apply_filters('woocommerce_citconpay_icon', '' . $plugin_dir . 'citconpay_methods.png');
 			$this->has_fields = true;
-
 			$this->init_form_fields();
 			$this->init_settings();
-
-			// variables
-			$this->title = $this->settings['title'];
 			$this->token = $this->settings['token'];
 			$this->mode = $this->settings['mode'];
+            $this->alipay = $this->settings['alipay'];
+            $this->wechatpay = $this->settings['wechatpay'];
+            $this->unionpay = $this->settings['unionpay'];
+
+            $imgalipay=strcmp($this->alipay,'yes')==0?'<img src="' . $plugin_dir . 'alipay.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
+            $imgwechatpay=strcmp($this->weichatpay,'yes')==0?'<img src="' . $plugin_dir . 'wechat.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
+            $imgunionpay=strcmp($this->unionpay,'yes')==0?'<img src="' . $plugin_dir . 'upop.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
+
+            // variables
+            $this->title ='<dev>'.$this->settings['title'].$imgunionpay.$imgwechatpay.$imgalipay.'</dev>';
 			$this->supports = array(
 				'products',
 				'refunds',
@@ -65,20 +69,9 @@ function init_woocommerce_citconpay() {
 				$this->enabled = false;
 			}
 		}
-
-		/**
-		 * Function get_icon.
-		 *
-		 * @return string
-		 */
-		public function get_icon() {
-			global $woocommerce;
-			$icon = '';
-			if ($this->icon) {
-				$icon = '<img src="' . $this->force_ssl($this->icon) . '" alt="' . $this->title . '" />';
-			}
-			return apply_filters('woocommerce_gateway_icon', $icon, $this->id);
-		}
+        public $alipay;
+        public $wechatpay;
+        public $unionpay;
 
 		/**
 		 * Check if this gateway is enabled and available in the user's country
@@ -152,7 +145,25 @@ function init_woocommerce_citconpay() {
 					),
 					'default' => 'live',
 					'description' => __('Test or Live', 'woocommerce')
-				)
+				),
+                'alipay' => array(
+                    'title' => __('Enable/Disable', 'woocommerce'),
+                    'type' => 'checkbox',
+                    'label' => __('Alipay', 'woocommerce'),
+                    'default' => 'yes'
+                ),
+                'wechatpay' => array(
+                    'title' => __('Enable/Disable', 'woocommerce'),
+                    'type' => 'checkbox',
+                    'label' => __('Wechatpay', 'woocommerce'),
+                    'default' => 'yes'
+                ),
+                'unionpay' => array(
+                    'title' => __('Enable/Disable', 'woocommerce'),
+                    'type' => 'checkbox',
+                    'label' => __('Unionpay', 'woocommerce'),
+                    'default' => 'yes'
+                )
 			);
 		}
 
@@ -247,21 +258,27 @@ function init_woocommerce_citconpay() {
 			<fieldset>
 				<legend><label><?php esc_html_e('Method of payment'); ?><span class="required">*</span></label></legend>
 				<ul class="wc_payment_methods payment_methods methods">
-					<li class="wc_payment_method">
-						<input id="citconpay_pay_method_alipay" class="input-radio" name="vendor" checked="checked"
-							   value="alipay" data-order_button_text="" type="radio" required>
-						<label for="citconpay_pay_method_alipay"> <?php esc_html_e('AliPay'); ?> </label>
-					</li>
-					<li class="wc_payment_method">
-						<input id="citconpay_pay_method_wechatpay" class="input-radio" name="vendor" value="wechatpay"
-							   data-order_button_text="" type="radio" required>
-						<label for="citconpay_pay_method_wechatpay"> <?php esc_html_e('WechatPay'); ?> </label>
-					</li>
-					<li class="wc_payment_method">
-						<input id="citconpay_pay_method_unionpay" class="input-radio" name="vendor" value="upop"
-							   data-order_button_text="" type="radio" required>
-						<label for="citconpay_pay_method_unionpay"> <?php esc_html_e('Unionpay'); ?> </label>
-					</li>
+                    <?php if(strcmp($this->alipay,'yes')==0) { ?>
+                            <li class="wc_payment_method" >
+                                <input id="citconpay_pay_method_alipay" class="input-radio" name="vendor" checked="checked"
+                                       value="alipay" data-order_button_text="" type="radio" required>
+                                <label for="citconpay_pay_method_alipay"> <?php esc_html_e('Alipay'); ?> </label>
+                            </li>
+                    <?php } ?>
+                    <?php if(strcmp($this->wechatpay,'yes')==0) { ?>
+                            <li class="wc_payment_method">
+                                <input id="citconpay_pay_method_wechatpay" class="input-radio" name="vendor" value="wechatpay"
+                                       data-order_button_text="" type="radio" required>
+                                <label for="citconpay_pay_method_wechatpay"> <?php esc_html_e('WeChat Pay'); ?> </label>
+                            </li>
+                    <?php } ?>
+                    <?php if(strcmp($this->unionpay,'yes')==0) { ?>
+                            <li class="wc_payment_method">
+                                <input id="citconpay_pay_method_unionpay" class="input-radio" name="vendor" value="upop"
+                                       data-order_button_text="" type="radio" required>
+                                <label for="citconpay_pay_method_unionpay"> <?php esc_html_e('UnionPay'); ?> </label>
+                            </li>
+                    <?php } ?>
 				</ul>
 				<div class="clear"></div>
 			</fieldset>
