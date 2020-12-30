@@ -1,5 +1,8 @@
 *** CitconPay Gateway for WooCommerce Changelog ***
 
+= 2020-12-30 v1.3.7 =
+* Fixed urlencode bug
+
 = 2020-12-30 v1.3.6 =
 * Add config
 
