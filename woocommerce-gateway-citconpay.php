@@ -42,12 +42,8 @@ function init_woocommerce_citconpay() {
             $this->wechatpay = $this->settings['wechatpay'];
             $this->unionpay = $this->settings['unionpay'];
 
-            $imgalipay=strcmp($this->alipay,'yes')==0?'<img src="' . $plugin_dir . 'alipay.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
-            $imgwechatpay=strcmp($this->wechatpay,'yes')==0?'<img src="' . $plugin_dir . 'wechat.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
-            $imgunionpay=strcmp($this->unionpay,'yes')==0?'<img src="' . $plugin_dir . 'upop.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
-
             // variables
-            $this->title ='<dev>'.$this->settings['title'].$imgunionpay.$imgwechatpay.$imgalipay.'</dev>';
+            $this->title = $this->settings['title'];
 			$this->supports = array(
 				'products',
 				'refunds',
