@@ -42,12 +42,8 @@ function init_woocommerce_citconpay() {
             $this->wechatpay = $this->settings['wechatpay'];
             $this->unionpay = $this->settings['unionpay'];
 
-            $imgalipay=strcmp($this->alipay,'yes')==0?'<img src="' . $plugin_dir . 'alipay.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
-            $imgwechatpay=strcmp($this->wechatpay,'yes')==0?'<img src="' . $plugin_dir . 'wechat.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
-            $imgunionpay=strcmp($this->unionpay,'yes')==0?'<img src="' . $plugin_dir . 'upop.png'.'" style="display: block; position: relative!important;right: 0!important;"/>':'';
-
             // variables
-            $this->title ='<dev>'.$this->settings['title'].$imgunionpay.$imgwechatpay.$imgalipay.'</dev>';
+            $this->title = $this->settings['title'];
 			$this->supports = array(
 				'products',
 				'refunds',
@@ -193,7 +189,7 @@ function init_woocommerce_citconpay() {
 				$nhp_arg['amount'] = $oder_total;
 			}
 			$nhp_arg['ipn_url'] = urlencode($this->notify_url);
-			$nhp_arg['callback_url_success'] = urlencode($order->get_checkout_order_received_url());
+			$nhp_arg['callback_url_success'] = $nhp_arg['mobile_result_url'] = urlencode($order->get_checkout_order_received_url());
 			//$nhp_arg['show_url']=$order->get_cancel_order_url();
 			$nhp_arg['reference'] = $orderid;
 
