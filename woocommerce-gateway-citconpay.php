@@ -153,13 +153,13 @@ function init_woocommerce_citconpay() {
                 'wechatpay' => array(
                     'title' => __('Enable/Disable', 'woocommerce'),
                     'type' => 'checkbox',
-                    'label' => __('Wechatpay', 'woocommerce'),
+                    'label' => __('WeChat Pay', 'woocommerce'),
                     'default' => 'yes'
                 ),
                 'unionpay' => array(
                     'title' => __('Enable/Disable', 'woocommerce'),
                     'type' => 'checkbox',
-                    'label' => __('Unionpay', 'woocommerce'),
+                    'label' => __('Union Pay', 'woocommerce'),
                     'default' => 'yes'
                 )
 			);
@@ -274,7 +274,7 @@ function init_woocommerce_citconpay() {
                             <li class="wc_payment_method">
                                 <input id="citconpay_pay_method_unionpay" class="input-radio" name="vendor" value="upop"
                                        data-order_button_text="" type="radio" required>
-                                <label for="citconpay_pay_method_unionpay"> <?php esc_html_e('UnionPay'); ?> </label>
+                                <label for="citconpay_pay_method_unionpay"> <?php esc_html_e('Union Pay'); ?> </label>
                             </li>
                     <?php } ?>
 				</ul>
