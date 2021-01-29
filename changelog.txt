@@ -1,5 +1,8 @@
 *** CitconPay Gateway for WooCommerce Changelog ***
 
+= 2021-01-29 v1.3.8 =
+* Show payment methods icon
+
 = 2020-12-30 v1.3.7 =
 * Fixed urlencode bug
 
