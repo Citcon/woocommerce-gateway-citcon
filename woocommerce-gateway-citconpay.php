@@ -3,7 +3,7 @@
  * Plugin Name: CitconPay Gateway for WooCommerce
  * Plugin Name:
  * Description: Allows you to use AliPay, WechatPay and UnionPay through CitconPay Gateway
- * Version: 1.3.7
+ * Version: 1.3.8
  * Author: citcon
  * Author URI: http://www.citcon.com
  *
@@ -12,7 +12,7 @@
  */
 
 add_action('plugins_loaded', 'init_woocommerce_citconpay', 0);
-define("WC_CITCON_GATEWAY_VERSION", "1.3.7");
+define("WC_CITCON_GATEWAY_VERSION", "1.3.8");
 define("WC_CITCON_GATEWAY_LOG" , "[wc-citcon]");
 
 function init_woocommerce_citconpay() {
@@ -33,6 +33,7 @@ function init_woocommerce_citconpay() {
 
 			$plugin_dir = plugin_dir_url(__FILE__);
 			$this->id = 'citconpay';
+            $this->icon = apply_filters('woocommerce_citconpay_icon', '' . $plugin_dir . 'citconpay_methods.png');
 			$this->has_fields = true;
 			$this->init_form_fields();
 			$this->init_settings();
