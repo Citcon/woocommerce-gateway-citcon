@@ -31,7 +31,6 @@ class Vendor {
 	 */
 	public $enabled = 'no';
 
-
     /**
      * Payment gateway method name
      * 
@@ -45,6 +44,7 @@ class Vendor {
 
     public $icon_height = '30';
 
+    public $hide_form_title = 'yes';
 
     public function __construct($data) { 
         $this->title = $data['title'];
@@ -54,6 +54,8 @@ class Vendor {
         $this->method = $data['method'];
         $this->checked = $data['checked'];
         $this->icon = $data['icon'];
+        $this->hide_form_title = $data['hide_form_title'];
+
         if (isset($data['icon_height'])) {
             $this->icon_height = $data['icon_height'];
         }
@@ -65,12 +67,17 @@ class Vendor {
     }
 
     public function get_form_fields () { 
-        return [ 
-            'title' => __('Enable/Disable', 'woocommerce'),
+        $forms = [ 
             'type' => 'checkbox',
             'label' => __($this -> title, 'woocommerce'),
             'default' => 'yes'
         ];
+
+        if ($this -> hide_form_title ==='no') {
+            $forms['title'] = __('Enable/Disable', 'woocommerce');
+        }
+
+        return $forms;
     }
 
 }
@@ -83,6 +90,7 @@ $cc_vendors = [
         'enabled' => 'no', 
         'method' => 'alipay',
         'checked' => 'yes',
+        'hide_form_title' => 'no',
         'icon' => 'images/alipay-logo.png',
     ]),
     
