@@ -155,14 +155,14 @@ $cc_vendors = [
 
 ];
 
-function get_vonder_list() {
+function get_vendor_list() {
     global $cc_vendors;
     return $cc_vendors;
 }
 
 function get_form_fields() {
     $list = [];
-    foreach (get_vonder_list() as $vendor) {
+    foreach (get_vendor_list() as $vendor) {
         $list[$vendor->method] = $vendor->get_form_fields();
     }
     return $list;
@@ -170,7 +170,7 @@ function get_form_fields() {
 
 function get_title_list() {
     $list = [];
-    foreach (get_vonder_list() as $vendor) {
+    foreach (get_vendor_list() as $vendor) {
         $list[$vendor->method] = $vendor->title;
     }
     return $list;
@@ -184,8 +184,8 @@ function get_api_url($mode, $method) {
     }
 }
 
-function get_vonder_by($method) {
-    foreach (get_vonder_list() as $vendor) {
+function get_vendor_by($method) {
+    foreach (get_vendor_list() as $vendor) {
         if ($method === $vendor -> method) {
             return $vendor;
         }
@@ -194,7 +194,7 @@ function get_vonder_by($method) {
 }
 
 function has_support_currency($currency) {
-    foreach (get_vonder_list() as $vendor) {
+    foreach (get_vendor_list() as $vendor) {
         if (in_array($currency, $vendor -> currency)) {
             return true;
         }

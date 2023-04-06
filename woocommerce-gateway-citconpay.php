@@ -12,7 +12,7 @@
  */
 
 add_action('plugins_loaded', 'init_woocommerce_citconpay', 0);
-define("WC_CITCON_GATEWAY_VERSION", "1.3.8");
+define("WC_CITCON_GATEWAY_VERSION", "1.4.0");
 define("WC_CITCON_GATEWAY_LOG" , "[wc-citcon]");
 require_once dirname( __FILE__ ) . '/vendor-config.php';
 
@@ -199,7 +199,7 @@ function init_woocommerce_citconpay() {
 			$nhp_arg['ext'] = urlencode(json_encode($ext_arg));
 
 
-            $vonder = get_vonder_by($_POST['vendor']);
+            $vonder = get_vendor_by($_POST['vendor']);
             if (isset($vonder) && isset($vonder->processPaymentBody)) {
                 $handleParams = $vonder->processPaymentBody;
                 $nhp_arg = $handleParams($nhp_arg);
@@ -255,7 +255,7 @@ function init_woocommerce_citconpay() {
 				<ul class="wc_payment_methods payment_methods methods">
                     <?php 
                     $plugin_dir = plugin_dir_url(__FILE__);
-                    foreach (get_vonder_list() as $key => $value) {
+                    foreach (get_vendor_list() as $key => $value) {
                             $method = $value -> method;
                             $title = $value -> title;
                             $currency = get_option('woocommerce_currency');
