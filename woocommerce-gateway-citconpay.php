@@ -3,7 +3,7 @@
  * Plugin Name: CitconPay Gateway for WooCommerce
  * Plugin Name:
  * Description: Allows you to use AliPay, WechatPay and UnionPay through CitconPay Gateway
- * Version: 1.3.8
+ * Version: 1.4.0
  * Author: citcon
  * Author URI: http://www.citcon.com
  *
@@ -14,6 +14,8 @@
 add_action('plugins_loaded', 'init_woocommerce_citconpay', 0);
 define("WC_CITCON_GATEWAY_VERSION", "1.3.8");
 define("WC_CITCON_GATEWAY_LOG" , "[wc-citcon]");
+require_once dirname( __FILE__ ) . '/vendor-config.php';
+
 
 function init_woocommerce_citconpay() {
 
@@ -23,9 +25,6 @@ function init_woocommerce_citconpay() {
 
 	class Woocommerce_Citconpay extends WC_Payment_Gateway {
 
-        public $alipay;
-        public $wechatpay;
-        public $unionpay;
 
 		public function __construct() {
 
@@ -33,16 +32,15 @@ function init_woocommerce_citconpay() {
 
 			$plugin_dir = plugin_dir_url(__FILE__);
 			$this->id = 'citconpay';
-            $this->icon = apply_filters('woocommerce_citconpay_icon', '' . $plugin_dir . 'citconpay_methods.png');
+            // $this->icon = apply_filters('woocommerce_citconpay_icon', '' . $plugin_dir . 'citconpay_methods.png');
+            $this->icon = apply_filters('woocommerce_citconpay_icon', '' . $plugin_dir . 'images/citcon-pay-logo.svg');
 			$this->has_fields = true;
 			$this->init_form_fields();
 			$this->init_settings();
 			$this->token = $this->settings['token'];
 			$this->mode = $this->settings['mode'];
-            $this->alipay = $this->settings['alipay'];
-            $this->wechatpay = $this->settings['wechatpay'];
-            $this->unionpay = $this->settings['unionpay'];
 
+           
             // variables
             $this->title = $this->settings['title'];
 			$this->supports = array(
@@ -53,14 +51,7 @@ function init_woocommerce_citconpay() {
 				$this->currency = $this->settings['currency'];
 			}
 			$this->notify_url = add_query_arg('wc-api', 'wc_citconpay', home_url('/'));
-			switch ($this->mode) {
-				case 'test':
-					$this->gateway_url = 'https://uat.citconpay.com/chop/chop';
-					break;
-				case 'live':
-					$this->gateway_url = 'https://citconpay.com/chop/chop';
-					break;
-			}
+            $this->gateway_url = get_api_url($this->mode, "chop");
 
 			// actions
 			add_action('woocommerce_update_options_payment_gateways', array($this, 'process_admin_options'));
@@ -76,11 +67,7 @@ function init_woocommerce_citconpay() {
 		 * Check if this gateway is enabled and available in the user's country
 		 */
 		public function is_valid_for_use() {
-			if (!in_array(get_option('woocommerce_currency'), array('USD','CAD'))) {
-				return false;
-			}
-
-			return true;
+            return has_support_currency(get_option('woocommerce_currency'));
 		}
 
 		/**
@@ -89,7 +76,7 @@ function init_woocommerce_citconpay() {
 		public function admin_options() {
 			?>
 			<h3><?php echo esc_html__('CitconPay', 'woocommerce'); ?></h3>
-			<p><?php echo esc_html__('CitconPay Gateway supports AliPay, WeChatPay and Union Pay.', 'woocommerce'); ?></p>
+			<p><?php echo esc_html__('CitconPay Gateway supports AliPay, WeChatPay, Union Pay and Paypal.', 'woocommerce'); ?></p>
 			<table class="form-table">
 				<?php
 				if ($this->is_valid_for_use()) :
@@ -145,25 +132,22 @@ function init_woocommerce_citconpay() {
 					'default' => 'live',
 					'description' => __('Test or Live', 'woocommerce')
 				),
-                'alipay' => array(
-                    'title' => __('Enable/Disable', 'woocommerce'),
-                    'type' => 'checkbox',
-                    'label' => __('Alipay', 'woocommerce'),
-                    'default' => 'yes'
-                ),
-                'wechatpay' => array(
-                    'title' => __('Enable/Disable', 'woocommerce'),
-                    'type' => 'checkbox',
-                    'label' => __('WeChat Pay', 'woocommerce'),
-                    'default' => 'yes'
-                ),
-                'unionpay' => array(
-                    'title' => __('Enable/Disable', 'woocommerce'),
-                    'type' => 'checkbox',
-                    'label' => __('Union Pay', 'woocommerce'),
-                    'default' => 'yes'
-                )
-			);
+            );
+
+            $title_list = get_title_list();
+            $this->form_fields['checked'] = [
+                'title' => __('Default Payment Method', 'woocommerce'),
+                'type' => 'select',
+                'options' => $title_list,
+                'default' => array_keys($title_list)[0],
+                'description' => __('Select a default payment method', 'woocommerce')
+            ];
+
+            $vendor_list = get_form_fields();
+            foreach ($vendor_list as $key => $value) {
+                $this->form_fields[$key] = $value;
+            }
+
 		}
 
 		/**
@@ -175,8 +159,9 @@ function init_woocommerce_citconpay() {
 			global $woocommerce;
 
 			$order = new WC_Order($order_id);
+            $paymentData = $order->data;
 
-			$time_stamp = gmdate('YmdHis');
+            $time_stamp = gmdate('YmdHis');
 			$orderid = $time_stamp . '-' . $order_id;
 
 			$nhp_arg = [];
@@ -191,6 +176,8 @@ function init_woocommerce_citconpay() {
 			}
 			$nhp_arg['ipn_url'] = urlencode($this->notify_url);
 			$nhp_arg['callback_url_success'] = $nhp_arg['mobile_result_url'] = urlencode($order->get_checkout_order_received_url());
+            $nhp_arg['callback_url_fail'] = $nhp_arg['callback_url_success'];
+
 			//$nhp_arg['show_url']=$order->get_cancel_order_url();
 			$nhp_arg['reference'] = $orderid;
 
@@ -201,14 +188,23 @@ function init_woocommerce_citconpay() {
 			}
 			//$nhp_arg['terminal']=$this->terminal;
 			$nhp_arg['note'] = $order_id;
-			$nbp_arg['allow_duplicates'] = 'yes';
-			$nhp_arg['source'] = 'woocommerce';
-			$ext_arg = [
+			$nhp_arg['allow_duplicates'] = 'yes';
+            $nhp_arg['source'] = 'woocommerce';
+
+            $ext_arg = [
 				"app_version" => WC_CITCON_GATEWAY_VERSION,
 				"woocommerce" => WC_VERSION,
 				"wordpress" => $GLOBALS["wp_version"]
 			];
 			$nhp_arg['ext'] = urlencode(json_encode($ext_arg));
+
+
+            $vonder = get_vonder_by($_POST['vendor']);
+            if (isset($vonder) && isset($vonder->processPaymentBody)) {
+                $handleParams = $vonder->processPaymentBody;
+                $nhp_arg = $handleParams($nhp_arg);
+            }
+
 
 			$post_values = '';
 			foreach ($nhp_arg as $key => $value) {
@@ -244,7 +240,7 @@ function init_woocommerce_citconpay() {
 		}
 
 		/**
-		 * Payment form on checkout page
+		 * Payment form on checkout page, front page
 		 */
 		public function payment_fields() {
 			global $woocommerce;
@@ -257,26 +253,38 @@ function init_woocommerce_citconpay() {
 			<fieldset>
 				<legend><label><?php esc_html_e('Method of payment'); ?><span class="required">*</span></label></legend>
 				<ul class="wc_payment_methods payment_methods methods">
-                    <?php if(strcmp($this->alipay,'yes')==0) { ?>
-                            <li class="wc_payment_method" >
-                                <input id="citconpay_pay_method_alipay" class="input-radio" name="vendor" checked="checked"
-                                       value="alipay" data-order_button_text="" type="radio" required>
-                                <label for="citconpay_pay_method_alipay"> <?php esc_html_e('Alipay'); ?> </label>
-                            </li>
-                    <?php } ?>
-                    <?php if(strcmp($this->wechatpay,'yes')==0) { ?>
-                            <li class="wc_payment_method">
-                                <input id="citconpay_pay_method_wechatpay" class="input-radio" name="vendor" value="wechatpay"
-                                       data-order_button_text="" type="radio" required>
-                                <label for="citconpay_pay_method_wechatpay"> <?php esc_html_e('WeChat Pay'); ?> </label>
-                            </li>
-                    <?php } ?>
-                    <?php if(strcmp($this->unionpay,'yes')==0) { ?>
-                            <li class="wc_payment_method">
-                                <input id="citconpay_pay_method_unionpay" class="input-radio" name="vendor" value="upop"
-                                       data-order_button_text="" type="radio" required>
-                                <label for="citconpay_pay_method_unionpay"> <?php esc_html_e('Union Pay'); ?> </label>
-                            </li>
+                    <?php 
+                    $plugin_dir = plugin_dir_url(__FILE__);
+                    foreach (get_vonder_list() as $key => $value) {
+                            $method = $value -> method;
+                            $title = $value -> title;
+                            $currency = get_option('woocommerce_currency');
+                            $icon = $value -> icon;
+                            $icon_height = $value -> icon_height;
+
+                            if (strcmp($this->settings[$method],'yes')==0 && in_array($currency, $value -> currency)) { ?>
+                                <li class="wc_payment_method">
+                                    <div style="display: flex; align-items: center;">
+                                        <input id="citconpay_pay_method_<?php echo $method; ?>" 
+                                                class="input-radio" 
+                                                name="vendor" 
+                                                value="<?php echo $method; ?>"
+                                                data-order_button_text="" 
+                                                type="radio" required 
+                                            <?php if (strcmp($this->settings['checked'],$method)==0) { ?>
+                                                checked="checked"
+                                            <?php } ?>
+                                            >
+                                        <label for="citconpay_pay_method_<?php echo $method; ?>">
+                                            <img src="<?php echo $plugin_dir . $icon; ?>" 
+                                            style="height: <?php echo $icon_height; ?>px; margin-left: -2px;" 
+                                            title="<?php esc_html_e($title); ?>"
+                                            />
+                                            <!-- <?php esc_html_e($title); ?>  -->
+                                        </label>
+                                    </div>
+                                </li>
+                        <?php } ?>
                     <?php } ?>
 				</ul>
 				<div class="clear"></div>
@@ -377,19 +385,12 @@ function init_woocommerce_citconpay() {
 				'amount' => $amount * 100,
 				'currency' => $order->get_currency(),
 				'transaction_id' => $order->get_transaction_id(),
-				'reason' => $reason
+				'reason' => isset($reason) ? $reason: 'No reason was given.', // ppcp will not success if empty reason
 			);
 
 			$post_values = http_build_query($request);
 
-			switch ($this->mode) {
-				case 'test':
-					$this->gateway_url_refund = 'https://uat.citconpay.com/chop/refund';
-					break;
-				case 'live':
-					$this->gateway_url_refund = 'https://citconpay.com/chop/refund';
-					break;
-			}
+            $this->gateway_url_refund = get_api_url($this->mode, "refund");
 
 			$this->wc_citcon_log('[refund request] '.$post_values);
 			$result = wp_remote_post($this->gateway_url_refund, array(
@@ -417,7 +418,7 @@ function init_woocommerce_citconpay() {
 		}
 
 		private function wc_citcon_log($messge) {
-				error_log(WC_CITCON_GATEWAY_LOG . " $messge");
+			error_log(WC_CITCON_GATEWAY_LOG . " $messge");
 		}
 	}
 
