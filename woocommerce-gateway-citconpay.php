@@ -201,7 +201,7 @@ function init_woocommerce_citconpay() {
             $vendor = get_vendor_by($_POST['vendor']);
             if (isset($vendor) && isset($vendor->processPaymentBody)) {
                 $handleParams = $vendor->processPaymentBody;
-                $nhp_arg = $handleParams($nhp_arg);
+                $nhp_arg = $handleParams($nhp_arg, $order);
             }
 
 			$post_values = '';

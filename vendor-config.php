@@ -123,25 +123,10 @@ $cc_vendors = [
         'checked' => 'no',
         'icon' => 'images/paypal-logo.png',
         'processPaymentBody' => function ($params, $order) {
-            $data = $order -> data;
-
-            if (isset($data['billing'])) {
-                $billing = $data['billing'];
-                $params['billing_address[zip]'] = $billing['postcode'];
-                $params['billing_address[city]'] = $billing['city'];
-                $params['billing_address[state]'] = $billing['state'];
-                $params['billing_address[country]'] = $billing['country'];
-                $params['billing_address[street]'] = $billing['address_1'];
-                $params['billing_address[street2]'] = $billing['address_2'];
-                $params['billing_address[first_name]'] = $billing['first_name'];
-                $params['billing_address[last_name]'] = $billing['last_name'];
-                $params['billing_address[phone]'] = $billing['phone'];
-                $params['billing_address[email]'] = $billing['email'];
-            }
-
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
-            return $params;
+
+            return process_billing_address($params, $order);
         }
     ]),
 
@@ -155,25 +140,10 @@ $cc_vendors = [
         'icon' => 'images/venmo-logo.png',
         'icon_height' => '20',
         'processPaymentBody' => function ($params, $order) {
-            $data = $order -> data;
-
-            if (isset($data['billing'])) {
-                $billing = $data['billing'];
-                $params['billing_address[zip]'] = $billing['postcode'];
-                $params['billing_address[city]'] = $billing['city'];
-                $params['billing_address[state]'] = $billing['state'];
-                $params['billing_address[country]'] = $billing['country'];
-                $params['billing_address[street]'] = $billing['address_1'];
-                $params['billing_address[street2]'] = $billing['address_2'];
-                $params['billing_address[first_name]'] = $billing['first_name'];
-                $params['billing_address[last_name]'] = $billing['last_name'];
-                $params['billing_address[phone]'] = $billing['phone'];
-                $params['billing_address[email]'] = $billing['email'];
-            }
-
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
-            return $params;
+
+            return process_billing_address($params, $order);
         },
     ]),
 
@@ -194,6 +164,35 @@ $cc_vendors = [
     ]),
 
 ];
+
+function process_billing_address($params, $order) {
+    $data = $order -> data;
+
+    if (isset($data['billing'])) {
+        $billing = $data['billing'];
+        $params['billing_address[zip]'] = $billing['postcode'];
+        $params['billing_address[city]'] = $billing['city'];
+        $params['billing_address[country]'] = $billing['country'];
+        $params['billing_address[street]'] = $billing['address_1'];
+        $params['billing_address[street2]'] = $billing['address_2'];
+        $params['billing_address[first_name]'] = $billing['first_name'];
+        $params['billing_address[last_name]'] = $billing['last_name'];
+        $params['billing_address[phone]'] = $billing['phone'];
+        $params['billing_address[email]'] = $billing['email'];
+
+        $countries_obj = new WC_Countries();
+        $country_states_array = $countries_obj->get_states();
+        $state_name = $country_states_array[$billing['country']][$billing['state']];
+        $len_index = strpos($state_name, ' / ');
+        if (isset($state_name) && $len_index !== false) {
+            $params['billing_address[state]'] = substr($state_name, 0, $len_index);
+        } else {
+            $params['billing_address[state]'] = $state_name;
+        }
+    }
+
+    return $params;
+}
 
 function get_vendor_list() {
     global $cc_vendors;
