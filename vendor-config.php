@@ -171,7 +171,7 @@ $cc_vendors = [
 
     new Vendor([
         'method' => 'cashapppay',
-        'title' => 'Cash App Pay',
+        'title' => 'Cash App',
         'currency' => ['USD'],
         'country' => '',
         'enabled' => 'no', 
