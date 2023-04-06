@@ -199,9 +199,9 @@ function init_woocommerce_citconpay() {
 			$nhp_arg['ext'] = urlencode(json_encode($ext_arg));
 
 
-            $vonder = get_vendor_by($_POST['vendor']);
-            if (isset($vonder) && isset($vonder->processPaymentBody)) {
-                $handleParams = $vonder->processPaymentBody;
+            $vendor = get_vendor_by($_POST['vendor']);
+            if (isset($vendor) && isset($vendor->processPaymentBody)) {
+                $handleParams = $vendor->processPaymentBody;
                 $nhp_arg = $handleParams($nhp_arg);
             }
 
