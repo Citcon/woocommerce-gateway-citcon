@@ -202,7 +202,7 @@ function init_woocommerce_citconpay() {
             $vonder = get_vendor_by($_POST['vendor']);
             if (isset($vonder) && isset($vonder->processPaymentBody)) {
                 $handleParams = $vonder->processPaymentBody;
-                $nhp_arg = $handleParams($nhp_arg);
+                $nhp_arg = $handleParams($nhp_arg, $order);
             }
 
 

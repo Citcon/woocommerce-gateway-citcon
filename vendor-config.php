@@ -114,7 +114,23 @@ $cc_vendors = [
         'enabled' => 'no', 
         'checked' => 'no',
         'icon' => 'images/paypal-logo.png',
-        'processPaymentBody' => function ($params) {
+        'processPaymentBody' => function ($params, $order) {
+            $data = $order -> data;
+
+            if (isset($data['billing'])) {
+                $billing = $data['billing'];
+                $params['billing_address[zip]'] = $billing['postcode'];
+                $params['billing_address[city]'] = $billing['city'];
+                $params['billing_address[state]'] = $billing['state'];
+                $params['billing_address[country]'] = $billing['country'];
+                $params['billing_address[street]'] = $billing['address_1'];
+                $params['billing_address[street2]'] = $billing['address_2'];
+                $params['billing_address[first_name]'] = $billing['first_name'];
+                $params['billing_address[last_name]'] = $billing['last_name'];
+                $params['billing_address[phone]'] = $billing['phone'];
+                $params['billing_address[email]'] = $billing['email'];
+            }
+
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
             return $params;
@@ -130,28 +146,44 @@ $cc_vendors = [
         'checked' => 'no',
         'icon' => 'images/venmo-logo.png',
         'icon_height' => '20',
-        'processPaymentBody' => function ($params) {
+        'processPaymentBody' => function ($params, $order) {
+            $data = $order -> data;
+
+            if (isset($data['billing'])) {
+                $billing = $data['billing'];
+                $params['billing_address[zip]'] = $billing['postcode'];
+                $params['billing_address[city]'] = $billing['city'];
+                $params['billing_address[state]'] = $billing['state'];
+                $params['billing_address[country]'] = $billing['country'];
+                $params['billing_address[street]'] = $billing['address_1'];
+                $params['billing_address[street2]'] = $billing['address_2'];
+                $params['billing_address[first_name]'] = $billing['first_name'];
+                $params['billing_address[last_name]'] = $billing['last_name'];
+                $params['billing_address[phone]'] = $billing['phone'];
+                $params['billing_address[email]'] = $billing['email'];
+            }
+
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
             return $params;
         },
     ]),
 
-    // new Vendor([
-    //     'method' => 'cashapppay',
-    //     'title' => 'Cash App Pay',
-    //     'currency' => ['USD'],
-    //     'country' => '',
-    //     'enabled' => 'no', 
-    //     'checked' => 'no',
-    //     'icon' => 'images/cashapp-logo.png',
-    //     'icon_height' => '22',
-    //     'processPaymentBody' => function ($params) {
-    //         $params['country'] = 'US';
-    //         $params['auto_capture'] = 'true';
-    //         return $params;
-    //     },
-    // ]),
+    new Vendor([
+        'method' => 'cashapppay',
+        'title' => 'Cash App Pay',
+        'currency' => ['USD'],
+        'country' => '',
+        'enabled' => 'no', 
+        'checked' => 'no',
+        'icon' => 'images/cashapp-logo.png',
+        'icon_height' => '22',
+        'processPaymentBody' => function ($params) {
+            $params['country'] = 'US';
+            $params['auto_capture'] = 'true';
+            return $params;
+        },
+    ]),
 
 ];
 
