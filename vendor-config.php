@@ -128,8 +128,8 @@ $cc_vendors = [
         'processPaymentBody' => function ($params, $order) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
-
-            return process_billing_address($params, $order);
+            return $params;
+            // return process_billing_address($params, $order);
         }
     ]),
 
@@ -145,8 +145,8 @@ $cc_vendors = [
         'processPaymentBody' => function ($params, $order) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
-
-            return process_billing_address($params, $order);
+            return $params;
+            // return process_billing_address($params, $order);
         },
     ]),
 
