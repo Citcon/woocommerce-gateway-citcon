@@ -54,7 +54,10 @@ class Vendor {
         $this->method = $data['method'];
         $this->checked = $data['checked'];
         $this->icon = $data['icon'];
-        $this->hide_form_title = $data['hide_form_title'];
+
+        if (isset($data['hide_form_title'])) {
+            $this->hide_form_title = $data['hide_form_title'];
+        }
 
         if (isset($data['icon_height'])) {
             $this->icon_height = $data['icon_height'];
