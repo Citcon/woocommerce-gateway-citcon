@@ -217,7 +217,7 @@ function init_woocommerce_citconpay() {
 				'sslverify' => false
 			));
 
-			if (!is_wp_error($response)) {
+            if (!is_wp_error($response)) {
 				$resp = $response['body'];
 				$result = json_decode($resp);
 				$this->wc_citcon_log('[pay response] '.json_encode($resp));
@@ -232,8 +232,13 @@ function init_woocommerce_citconpay() {
 					'result' => 'success',
 					'redirect' => $redirect
 				);
-			} else {
-				$woocommerce->add_error(__('Gateway Error.', 'woocommerce'));
+            } else {
+                $this->wc_citcon_log('[pay error] '. $response->get_error_message());
+                if ( is_callable( array( $woocommerce, 'add_error' ) ) ) {
+                    $woocommerce->add_error(__('Gateway Error.', 'woocommerce'));
+                } else {
+                    wc_add_notice( __('Gateway Error.', 'woocommerce') );
+                }
 			}
 		}
 
