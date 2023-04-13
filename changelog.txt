@@ -1,5 +1,8 @@
 *** CitconPay Gateway for WooCommerce Changelog ***
 
+= 2023-04-12 v1.5.0 =
+* Added cashapp payment method
+
 = 2023-04-04 v1.4.0 =
 * Added paypal/venmo payment method
 * Changed default payment method 
