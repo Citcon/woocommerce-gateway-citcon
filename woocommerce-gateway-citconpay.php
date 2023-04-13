@@ -3,7 +3,7 @@
  * Plugin Name: CitconPay Gateway for WooCommerce
  * Plugin Name:
  * Description: Allows you to use AliPay, WechatPay and UnionPay through CitconPay Gateway
- * Version: 1.4.0
+ * Version: 1.5.0
  * Author: citcon
  * Author URI: http://www.citcon.com
  *
@@ -12,7 +12,7 @@
  */
 
 add_action('plugins_loaded', 'init_woocommerce_citconpay', 0);
-define("WC_CITCON_GATEWAY_VERSION", "1.4.0");
+define("WC_CITCON_GATEWAY_VERSION", "1.5.0");
 define("WC_CITCON_GATEWAY_LOG" , "[wc-citcon]");
 require_once dirname( __FILE__ ) . '/vendor-config.php';
 
@@ -198,13 +198,11 @@ function init_woocommerce_citconpay() {
 			];
 			$nhp_arg['ext'] = urlencode(json_encode($ext_arg));
 
-
             $vendor = get_vendor_by($_POST['vendor']);
             if (isset($vendor) && isset($vendor->processPaymentBody)) {
                 $handleParams = $vendor->processPaymentBody;
-                $nhp_arg = $handleParams($nhp_arg);
+                $nhp_arg = $handleParams($nhp_arg, $order);
             }
-
 
 			$post_values = '';
 			foreach ($nhp_arg as $key => $value) {
@@ -219,7 +217,7 @@ function init_woocommerce_citconpay() {
 				'sslverify' => false
 			));
 
-			if (!is_wp_error($response)) {
+            if (!is_wp_error($response)) {
 				$resp = $response['body'];
 				$result = json_decode($resp);
 				$this->wc_citcon_log('[pay response] '.json_encode($resp));
@@ -234,8 +232,13 @@ function init_woocommerce_citconpay() {
 					'result' => 'success',
 					'redirect' => $redirect
 				);
-			} else {
-				$woocommerce->add_error(__('Gateway Error.', 'woocommerce'));
+            } else {
+                $this->wc_citcon_log('[pay error] '. $response->get_error_message());
+                if ( is_callable( array( $woocommerce, 'add_error' ) ) ) {
+                    $woocommerce->add_error(__('Gateway Error.', 'woocommerce'));
+                } else {
+                    wc_add_notice( __('Gateway Error.', 'woocommerce') );
+                }
 			}
 		}
 

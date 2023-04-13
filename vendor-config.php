@@ -31,7 +31,6 @@ class Vendor {
 	 */
 	public $enabled = 'no';
 
-
     /**
      * Payment gateway method name
      * 
@@ -45,6 +44,7 @@ class Vendor {
 
     public $icon_height = '30';
 
+    public $hide_form_title = 'yes';
 
     public function __construct($data) { 
         $this->title = $data['title'];
@@ -54,6 +54,11 @@ class Vendor {
         $this->method = $data['method'];
         $this->checked = $data['checked'];
         $this->icon = $data['icon'];
+
+        if (isset($data['hide_form_title'])) {
+            $this->hide_form_title = $data['hide_form_title'];
+        }
+
         if (isset($data['icon_height'])) {
             $this->icon_height = $data['icon_height'];
         }
@@ -65,12 +70,17 @@ class Vendor {
     }
 
     public function get_form_fields () { 
-        return [ 
-            'title' => __('Enable/Disable', 'woocommerce'),
+        $forms = [ 
             'type' => 'checkbox',
             'label' => __($this -> title, 'woocommerce'),
             'default' => 'yes'
         ];
+
+        if ($this -> hide_form_title ==='no') {
+            $forms['title'] = __('Enable/Disable', 'woocommerce');
+        }
+
+        return $forms;
     }
 
 }
@@ -83,6 +93,7 @@ $cc_vendors = [
         'enabled' => 'no', 
         'method' => 'alipay',
         'checked' => 'yes',
+        'hide_form_title' => 'no',
         'icon' => 'images/alipay-logo.png',
     ]),
     
@@ -114,10 +125,11 @@ $cc_vendors = [
         'enabled' => 'no', 
         'checked' => 'no',
         'icon' => 'images/paypal-logo.png',
-        'processPaymentBody' => function ($params) {
+        'processPaymentBody' => function ($params, $order) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
             return $params;
+            // return process_billing_address($params, $order);
         }
     ]),
 
@@ -130,6 +142,23 @@ $cc_vendors = [
         'checked' => 'no',
         'icon' => 'images/venmo-logo.png',
         'icon_height' => '20',
+        'processPaymentBody' => function ($params, $order) {
+            $params['country'] = 'US';
+            $params['auto_capture'] = 'true';
+            return $params;
+            // return process_billing_address($params, $order);
+        },
+    ]),
+
+    new Vendor([
+        'method' => 'cashapppay',
+        'title' => 'Cash App',
+        'currency' => ['USD'],
+        'country' => '',
+        'enabled' => 'no', 
+        'checked' => 'no',
+        'icon' => 'images/cashapp-logo.png',
+        'icon_height' => '22',
         'processPaymentBody' => function ($params) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
@@ -137,23 +166,36 @@ $cc_vendors = [
         },
     ]),
 
-    // new Vendor([
-    //     'method' => 'cashapppay',
-    //     'title' => 'Cash App Pay',
-    //     'currency' => ['USD'],
-    //     'country' => '',
-    //     'enabled' => 'no', 
-    //     'checked' => 'no',
-    //     'icon' => 'images/cashapp-logo.png',
-    //     'icon_height' => '22',
-    //     'processPaymentBody' => function ($params) {
-    //         $params['country'] = 'US';
-    //         $params['auto_capture'] = 'true';
-    //         return $params;
-    //     },
-    // ]),
-
 ];
+
+function process_billing_address($params, $order) {
+    $data = $order -> data;
+
+    if (isset($data['billing'])) {
+        $billing = $data['billing'];
+        $params['billing_address[zip]'] = $billing['postcode'];
+        $params['billing_address[city]'] = $billing['city'];
+        $params['billing_address[country]'] = $billing['country'];
+        $params['billing_address[street]'] = $billing['address_1'];
+        $params['billing_address[street2]'] = $billing['address_2'];
+        $params['billing_address[first_name]'] = $billing['first_name'];
+        $params['billing_address[last_name]'] = $billing['last_name'];
+        $params['billing_address[phone]'] = $billing['phone'];
+        $params['billing_address[email]'] = $billing['email'];
+
+        $countries_obj = new WC_Countries();
+        $country_states_array = $countries_obj->get_states();
+        $state_name = $country_states_array[$billing['country']][$billing['state']];
+        $len_index = strpos($state_name, ' / ');
+        if (isset($state_name) && $len_index !== false) {
+            $params['billing_address[state]'] = substr($state_name, 0, $len_index);
+        } else {
+            $params['billing_address[state]'] = $state_name;
+        }
+    }
+
+    return $params;
+}
 
 function get_vendor_list() {
     global $cc_vendors;
