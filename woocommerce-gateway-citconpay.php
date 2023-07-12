@@ -280,7 +280,7 @@ function init_woocommerce_citconpay() {
                                             >
                                         <label for="citconpay_pay_method_<?php echo $method; ?>">
                                             <img src="<?php echo $plugin_dir . $icon; ?>" 
-                                            style="height: <?php echo $icon_height; ?>px; margin-left: -2px;" 
+                                            style="height: <?php echo $icon_height; ?>px; margin-left: -2px;" alt="Citcon Pay"
                                             title="<?php esc_html_e($title); ?>"
                                             />
                                             <!-- <?php esc_html_e($title); ?>  -->
