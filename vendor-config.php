@@ -184,8 +184,8 @@ function get_country_state_name($country, $state) {
 function process_billing_address($params, $order) {
     $data = $order -> data;
 
-    if (isset($data['billing'])) {
-        $_billing = $data['billing'];
+    $_billing = $data['billing'];
+    if (isset($_billing)) {
         $_billing_country = $order->get_billing_country();
         $_billing_state = get_country_state_name($_billing_country, $order->get_billing_state());
 
@@ -203,8 +203,8 @@ function process_billing_address($params, $order) {
 
     $goods = [];
     $items = $order -> items;
-    // $_total_goods_tax_amount = 0;
 
+    // goods item
     if (isset($items) && count($items) > 0) {
         foreach ($items as $item) { // [WC_Order_Item_Product]
             $name = mb_substr( $item->get_name(), 0, 127 );
@@ -220,8 +220,6 @@ function process_billing_address($params, $order) {
             $sku = $product instanceof WC_Product ? $product->get_sku() : '';
             $total_tax = (float) $item -> get_total_tax();
             
-            // $_total_goods_tax_amount += $total_tax;
-            
             $unit_tax_amount = $total_tax / $quantity * 100;
             $total_discount_amount = ((float) $item -> get_subtotal() -  (float) $item -> get_total()) * 100;
 
@@ -232,25 +230,47 @@ function process_billing_address($params, $order) {
                 'product_type'          => $product_type,
                 'unit_amount'           => floor($unit_amount),
                 'unit_tax_amount'       => floor($unit_tax_amount),
-                'total_discount_amount' => floor($total_discount_amount),
+                'total_tax_amount'      => round($total_tax * 100),
+                'total_discount_amount' => round($total_discount_amount),
             ]);
         }
-
     }
 
+    // fees
+    $_fees = $order->get_fees();
+    if (isset($_fees)) {
+        foreach ($_fees as $fee) { // [WC_Order_Item_Fee]
+            array_push($goods, [
+                'sku'                   => '',
+                'name'                  => $fee -> get_name(),
+                'quantity'              => 1,
+                'product_type'          => 'physical',
+                'unit_amount'           => round($fee -> get_amount() * 100),
+                'unit_tax_amount'       => round($fee -> get_total_tax() * 100),
+                'total_discount_amount' => 0,
+            ]);
+        }
+    }
+
+    // shipping amount & tax
+    // $_shipping_tax = round($order->get_shipping_tax() * 100);
+    // if ($_shipping_tax > 0) {
+    //     array_push($goods, [
+    //         'sku'                   => '',
+    //         'name'                  => 'Shipping',
+    //         'quantity'              => 1,
+    //         'product_type'          => 'physical',
+    //         'unit_amount'           => round(($order->get_shipping_total()) * 100),
+    //         'unit_tax_amount'       => $_shipping_tax,
+    //         'total_discount_amount' => 0,
+    //     ]);
+    // }
+
     $shipping = [];
-    if (isset($data['shipping'])) {
-        $_shipping = $data['shipping'];
-        $total_fee_tax = array_sum(
-                array_map(
-                    function ( WC_Order_Item_Fee $fee ): float {
-                        return (float) $fee->get_total_tax();
-                    },
-                    $order -> get_fees()
-                )
-            );
-        $_shipping_amount = ($order->get_shipping_total() + $order->get_shipping_tax() + $order->get_total_fees() + $total_fee_tax) * 100;
-        // $_shipping_amount = ($order->get_shipping_total() + $order->get_total_tax() + $order->get_total_fees() - $_total_goods_tax_amount) * 100;
+    $_shipping = $data['shipping'];
+    if (isset($_shipping)) {
+        // $_shipping_amount = 0;
+        $_shipping_amount = ($order->get_shipping_total() + $order->get_shipping_tax()) * 100;
 
         $_shipping_country = $order->get_shipping_country();
         $_shipping_state = get_country_state_name($_shipping_country, $order->get_shipping_state());
@@ -263,7 +283,7 @@ function process_billing_address($params, $order) {
             'city'          => $order->get_shipping_city(),
             'street'        => $order->get_shipping_address_1(),
             'street2'       => $order->get_shipping_address_2(),
-            'zip'           => $order->get_shipping_postcode(),               
+            'zip'           => $order->get_shipping_postcode(),
             'type'          => 'SHIPPING', // shipping, pickup_in_person, default is shipping
         ];
     }
@@ -277,6 +297,8 @@ function process_billing_address($params, $order) {
     return $params;
 }
 
+
+
 function verify_and_smooth_amount($order, $goods) {
     /*
     case: 
@@ -288,7 +310,7 @@ function verify_and_smooth_amount($order, $goods) {
     + goods.shipping.amount
      */
 
-    $_amount = $order->get_total() * 100;
+    $_amount = (float) $order->get_total() * 100;
 
     $_shipping_amount = $goods['shipping']['amount'];
     $_total_unit_amount = 0;
@@ -305,7 +327,11 @@ function verify_and_smooth_amount($order, $goods) {
 
     // smooth amount
     if ($_total_goods_amount != $_amount) {
-        $goods['shipping']['amount'] = $_amount - $_total_goods_amount_with_tax;
+        if ($_amount - $_total_goods_amount_with_tax <= 0) {
+            $goods['shipping']['amount'] = 0;
+        } else {
+            $goods['shipping']['amount'] = round($_amount - $_total_goods_amount_with_tax);
+        }
     }
 
     return $goods;
