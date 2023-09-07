@@ -128,8 +128,8 @@ $cc_vendors = [
         'processPaymentBody' => function ($params, $order) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
-            return $params;
-            // return process_billing_address($params, $order);
+            // return $params;
+            return process_billing_address($params, $order);
         }
     ]),
 
@@ -145,8 +145,8 @@ $cc_vendors = [
         'processPaymentBody' => function ($params, $order) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
-            return $params;
-            // return process_billing_address($params, $order);
+            // return $params;
+            return process_billing_address($params, $order);
         },
     ]),
 
@@ -168,33 +168,173 @@ $cc_vendors = [
 
 ];
 
+function get_country_state_name($country, $state) {
+    $countries_obj = new WC_Countries();
+    $country_states_array = $countries_obj->get_states();
+    $state_name = $country_states_array[$country][$state];
+    $len_index = strpos($state_name, ' / ');
+    if (isset($state_name) && $len_index !== false) {
+        return substr($state_name, 0, $len_index);
+    } else {
+        return $state_name;
+    }
+
+}
+
 function process_billing_address($params, $order) {
     $data = $order -> data;
 
-    if (isset($data['billing'])) {
-        $billing = $data['billing'];
-        $params['billing_address[zip]'] = $billing['postcode'];
-        $params['billing_address[city]'] = $billing['city'];
-        $params['billing_address[country]'] = $billing['country'];
-        $params['billing_address[street]'] = $billing['address_1'];
-        $params['billing_address[street2]'] = $billing['address_2'];
-        $params['billing_address[first_name]'] = $billing['first_name'];
-        $params['billing_address[last_name]'] = $billing['last_name'];
-        $params['billing_address[phone]'] = $billing['phone'];
-        $params['billing_address[email]'] = $billing['email'];
+    $_billing = $data['billing'];
+    if (isset($_billing)) {
+        $_billing_country = $order->get_billing_country();
+        $_billing_state = get_country_state_name($_billing_country, $order->get_billing_state());
 
-        $countries_obj = new WC_Countries();
-        $country_states_array = $countries_obj->get_states();
-        $state_name = $country_states_array[$billing['country']][$billing['state']];
-        $len_index = strpos($state_name, ' / ');
-        if (isset($state_name) && $len_index !== false) {
-            $params['billing_address[state]'] = substr($state_name, 0, $len_index);
-        } else {
-            $params['billing_address[state]'] = $state_name;
+        $params['billing_address[first_name]']  = $order->get_billing_first_name();
+        $params['billing_address[last_name]']   = $order->get_billing_last_name();
+        $params['billing_address[country]']     = $_billing_country;
+        $params['billing_address[state]']       = $_billing_state;
+        $params['billing_address[city]']        = $order->get_billing_city();
+        $params['billing_address[street]']      = $order->get_billing_address_1();
+        $params['billing_address[street2]']     = $order->get_billing_address_2();
+        $params['billing_address[zip]']         = $order->get_billing_postcode();
+        $params['billing_address[phone]']       = $order->get_billing_phone();
+        $params['billing_address[email]']       = $order->get_billing_email();
+    }
+
+    $goods = [];
+    $items = $order -> items;
+
+    // goods item
+    if (isset($items) && count($items) > 0) {
+        foreach ($items as $item) { // [WC_Order_Item_Product]
+            $name = mb_substr( $item->get_name(), 0, 127 );
+            $quantity =  (int) $item -> get_quantity();
+            $product = $item -> get_product(); // WC_Product_Simple
+
+            $price_without_tax = (float) $order->get_item_subtotal( $item, false );
+		    $unit_amount = $price_without_tax * 100;
+            
+            // physical, digital, donation
+            $product_type = $product instanceof WC_Product && $product->is_virtual() ? 'digital' : 'physical';
+
+            $sku = $product instanceof WC_Product ? $product->get_sku() : '';
+            $total_tax = (float) $item -> get_total_tax();
+            
+            $unit_tax_amount = $total_tax / $quantity * 100;
+            $total_discount_amount = ((float) $item -> get_subtotal() -  (float) $item -> get_total()) * 100;
+
+            array_push($goods, [
+                'sku'                   => $sku,
+                'name'                  => $name,
+                'quantity'              => $quantity,
+                'product_type'          => $product_type,
+                'unit_amount'           => floor($unit_amount),
+                'unit_tax_amount'       => floor($unit_tax_amount),
+                'total_tax_amount'      => round($total_tax * 100),
+                'total_discount_amount' => round($total_discount_amount),
+            ]);
         }
     }
 
+    // fees
+    $_fees = $order->get_fees();
+    if (isset($_fees)) {
+        foreach ($_fees as $fee) { // [WC_Order_Item_Fee]
+            array_push($goods, [
+                'sku'                   => '',
+                'name'                  => $fee -> get_name(),
+                'quantity'              => 1,
+                'product_type'          => 'physical',
+                'unit_amount'           => round($fee -> get_amount() * 100),
+                'unit_tax_amount'       => round($fee -> get_total_tax() * 100),
+                'total_discount_amount' => 0,
+            ]);
+        }
+    }
+
+    // shipping amount & tax
+    // $_shipping_tax = round($order->get_shipping_tax() * 100);
+    // if ($_shipping_tax > 0) {
+    //     array_push($goods, [
+    //         'sku'                   => '',
+    //         'name'                  => 'Shipping',
+    //         'quantity'              => 1,
+    //         'product_type'          => 'physical',
+    //         'unit_amount'           => round(($order->get_shipping_total()) * 100),
+    //         'unit_tax_amount'       => $_shipping_tax,
+    //         'total_discount_amount' => 0,
+    //     ]);
+    // }
+
+    $shipping = [];
+    $_shipping = $data['shipping'];
+    if (isset($_shipping)) {
+        // $_shipping_amount = 0;
+        $_shipping_amount = ($order->get_shipping_total() + $order->get_shipping_tax()) * 100;
+
+        $_shipping_country = $order->get_shipping_country();
+        $_shipping_state = get_country_state_name($_shipping_country, $order->get_shipping_state());
+        $shipping = [
+            'amount'        => floor($_shipping_amount),
+            'first_name'    => $order->get_shipping_first_name(),
+            'last_name'     => $order->get_shipping_last_name(),
+            'country'       => $_shipping_country,
+            'state'         => $_shipping_state,
+            'city'          => $order->get_shipping_city(),
+            'street'        => $order->get_shipping_address_1(),
+            'street2'       => $order->get_shipping_address_2(),
+            'zip'           => $order->get_shipping_postcode(),
+            'type'          => 'SHIPPING', // shipping, pickup_in_person, default is shipping
+        ];
+    }
+        
+    $goods = ['data' => $goods, 'shipping' => $shipping];
+
+    $goods = verify_and_smooth_amount($order, $goods);
+
+    $params['goods'] = json_encode($goods);
+
     return $params;
+}
+
+
+
+function verify_and_smooth_amount($order, $goods) {
+    /*
+    case: 
+    payment's amount should equal with sum(
+          goods.data.unit_amount * goods.data.quantity 
+        + goods.data.unit_tax_amount * goods.data.quantity 
+        - goods.data.total_discount_amount
+    ) 
+    + goods.shipping.amount
+     */
+
+    $_amount = (float) $order->get_total() * 100;
+
+    $_shipping_amount = $goods['shipping']['amount'];
+    $_total_unit_amount = 0;
+    $_total_goods_tax_amount = 0;
+    $_total_discount_amount = 0;
+    foreach ($goods['data'] as $item) {
+        $_total_unit_amount += $item['unit_amount'] * $item['quantity'];
+        $_total_goods_tax_amount += $item['unit_tax_amount'] * $item['quantity'];
+        $_total_discount_amount += $item['total_discount_amount'];
+    }
+
+    $_total_goods_amount_with_tax = $_total_unit_amount + $_total_goods_tax_amount - $_total_discount_amount;
+    $_total_goods_amount = $_total_goods_amount_with_tax + $_shipping_amount;
+
+    // smooth amount
+    if ($_total_goods_amount != $_amount) {
+        if ($_amount - $_total_goods_amount_with_tax <= 0) {
+            $goods['shipping']['amount'] = 0;
+        } else {
+            $goods['shipping']['amount'] = round($_amount - $_total_goods_amount_with_tax);
+        }
+    }
+
+    return $goods;
 }
 
 function get_vendor_list() {
