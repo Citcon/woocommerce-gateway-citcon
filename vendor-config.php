@@ -46,7 +46,7 @@ class Vendor {
 
     public $hide_form_title = 'yes';
 
-    public function __construct($data) { 
+    public function __construct($data) {
         $this->title = $data['title'];
         $this->currency = $data['currency'];
         $this->country = $data['country'];
@@ -69,7 +69,7 @@ class Vendor {
 
     }
 
-    public function get_form_fields () { 
+    public function get_form_fields () {
         $forms = [ 
             'type' => 'checkbox',
             'label' => __($this -> title, 'woocommerce'),
@@ -90,7 +90,7 @@ $cc_vendors = [
         'title' => 'Alipay',
         'currency' => ['USD', 'CAD'],
         'country' => '',
-        'enabled' => 'no', 
+        'enabled' => 'no',
         'method' => 'alipay',
         'checked' => 'yes',
         'hide_form_title' => 'no',
@@ -102,7 +102,7 @@ $cc_vendors = [
         'title' => 'WeChat Pay',
         'currency' => ['USD', 'CAD'],
         'country' => '',
-        'enabled' => 'no', 
+        'enabled' => 'no',
         'checked' => 'no',
         'icon' => 'images/wechatpay-logo.png',
     ]),
@@ -112,7 +112,7 @@ $cc_vendors = [
         'title' => 'Union Pay',
         'currency' => ['USD', 'CAD'],
         'country' => '',
-        'enabled' => 'no', 
+        'enabled' => 'no',
         'checked' => 'no',
         'icon' => 'images/unionpay2-logo.png',
     ]),
@@ -122,7 +122,7 @@ $cc_vendors = [
         'title' => 'Paypal',
         'currency' => ['USD'],
         'country' => '',
-        'enabled' => 'no', 
+        'enabled' => 'no',
         'checked' => 'no',
         'icon' => 'images/paypal-logo.png',
         'processPaymentBody' => function ($params, $order) {
@@ -138,7 +138,7 @@ $cc_vendors = [
         'title' => 'Venmo',
         'currency' => ['USD'],
         'country' => '',
-        'enabled' => 'no', 
+        'enabled' => 'no',
         'checked' => 'no',
         'icon' => 'images/venmo-logo.png',
         'icon_height' => '20',
@@ -155,7 +155,7 @@ $cc_vendors = [
         'title' => 'Cash App',
         'currency' => ['USD'],
         'country' => '',
-        'enabled' => 'no', 
+        'enabled' => 'no',
         'checked' => 'no',
         'icon' => 'images/cashapp-logo.png',
         'icon_height' => '22',
@@ -206,9 +206,7 @@ function process_billing_address($params, $order) {
 
     $params['consumer[reference]'] = get_reference_code($order->get_id());
 
-
-    
-    $items = $order -> items;
+    $items = $order -> get_items(); // [WC_Order_Item_Product]
 
     // goods item
     if (isset($items) && count($items) > 0) {
@@ -266,7 +264,10 @@ function process_billing_address($params, $order) {
         $shipping = [];
         $_shipping = $order_data['shipping'];
         if (isset($_shipping)) {
-            $_shipping_amount = ($order->get_shipping_total() + $order->get_shipping_tax()) * $factor;
+            // $_shipping_amount = ($order->get_shipping_total() + $order->get_shipping_tax()) * $factor;
+
+            $_shipping_amount = ($order->get_shipping_total()) * $factor;
+            $_shipping_tax_amount = ($order->get_shipping_tax()) * $factor;
 
             $_shipping_country = $order->get_shipping_country();
             $_shipping_state = get_country_state_name($_shipping_country, $order->get_shipping_state());
@@ -274,6 +275,7 @@ function process_billing_address($params, $order) {
                 'first_name'    => $order->get_shipping_first_name(),
                 'last_name'     => $order->get_shipping_last_name(),
                 'amount'        => floor($_shipping_amount),
+                'tax_amount'    => floor($_shipping_tax_amount),
                 'phone'         => $order->get_shipping_phone() ?: null,
                 'email'         => !empty($_shipping->email) ? $_shipping->email : null,
                 'country'       => $_shipping_country,
@@ -291,7 +293,7 @@ function process_billing_address($params, $order) {
         }
     }
 
-    $goods = verify_and_smooth_amount($order, $goods, $factor);
+    // $goods = verify_and_smooth_amount($order, $goods, $factor);
 
     $params['goods'] = json_encode($goods);
 
@@ -340,16 +342,42 @@ function verify_and_smooth_amount($order, $goods, $factor) {
             $goods['data'][$target_index]['unit_tax_amount'] += $tax_diff + $shipping_tax;
             $goods['data'][$target_index]['total_tax_amount'] = $goods['data'][$target_index]['unit_tax_amount'];
         } else {
-            array_push( $goods['data'], [
-                'sku' => '',
-                'name' => 'Adjustment Amount',
-                'quantity' => 1,
-                'product_type' => 'physical',
-                'unit_amount' => $tax_diff + $shipping_tax,
-                'unit_tax_amount' => 0,
-                'total_tax_amount' => 0,
-                'total_discount_amount' => 0,
-            ]);
+            // method 1:
+            // insert new one item
+
+            // method 2:    
+            // combine all item which quantity > 1
+
+            $merge_method = 2;
+
+            if ($merge_method == 1) {
+                array_push( $goods['data'], [
+                    'sku' => '',
+                    'name' => 'Adjustment Amount',
+                    'quantity' => 1,
+                    'product_type' => 'physical',
+                    'unit_amount' => $tax_diff + $shipping_tax,
+                    'unit_tax_amount' => 0,
+                    'total_tax_amount' => 0,
+                    'total_discount_amount' => 0,
+                ]);
+            } else {
+                foreach ($goods['data'] as $idx => $item) {
+                    $quantity = $item['quantity'];
+                    if ($quantity > 1) {
+                        $goods['data'][$idx]['unit_amount'] *= $quantity;
+                        $goods['data'][$idx]['unit_tax_amount'] = $goods['data'][$idx]['total_tax_amount'];
+                        $goods['data'][$idx]['quantity'] = 1;
+                    }
+                }
+
+                // add shipping tax to the last item
+                $last_index = count($goods['data']) - 1;
+                if ($last_index >= 0) {
+                    $goods['data'][$last_index]['unit_tax_amount'] += $shipping_tax;
+                    $goods['data'][$last_index]['total_tax_amount'] = $shipping_tax;
+                }
+            }
         }
 
         if (isset($goods['shipping']['amount'])) {
@@ -360,9 +388,8 @@ function verify_and_smooth_amount($order, $goods, $factor) {
     return $goods;
 }
 
-
 function has_physical_goods($order) {
-    $items = $order -> items;
+    $items = $order -> get_items(); // [WC_Order_Item_Product]
     if (isset($items) && count($items) > 0) {
         foreach ($items as $item) { // [WC_Order_Item_Product]
             $product = $item -> get_product(); // WC_Product_Simple

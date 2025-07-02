@@ -34,6 +34,18 @@ function init_woocommerce_citconpay() {
 			$this->id = 'citconpay';
             // $this->icon = apply_filters('woocommerce_citconpay_icon', '' . $plugin_dir . 'citconpay_methods.png');
             $this->icon = apply_filters('woocommerce_citconpay_icon', '' . $plugin_dir . 'images/citcon-pay-logo.svg');
+
+            $this->method_title       = __( 'CitconPay', 'woocommerce-gateway-citconpay' );
+            $this->method_description = sprintf(
+                /* translators: 1: html starting code 2: html end code */
+                    __(
+                        '%1$sCitconPay%2$s Gateway supports AliPay, WeChatPay, Union Pay and Paypal.',
+                        'woocommerce-gateway-citconpay'
+                    ),
+                    '<a href="http://citcon.com/">',
+                    '</a>'
+                );
+
 			$this->has_fields = true;
 			$this->init_form_fields();
 			$this->init_settings();
@@ -305,49 +317,77 @@ function init_woocommerce_citconpay() {
 			return $url;
 		}
 
-		public function check_ipn_response() {
-			global $woocommerce;
+        function check_ipn_response() {
+            global $woocommerce;
 			@ob_clean();
-			//$note = $_REQUEST['note'];
-			if (isset($_REQUEST['id']) ) {
-				$transactionId = sanitize_text_field($_REQUEST['id']);
-			}
-			if (isset($_REQUEST['notify_status']) ) {
-				$status = sanitize_text_field($_REQUEST['notify_status']);
-			}
-			if (isset($_REQUEST['reference']) ) {
-				$reference = sanitize_text_field($_REQUEST['reference']);
-			}
-			$order_ids = explode('-', $reference);
+            if ( !isset($_SERVER['REQUEST_METHOD']) || $_SERVER['REQUEST_METHOD'] != 'POST' ) {
+                wp_die('Invalid request method.');
+            }
+
+            // if ( !isset($_SERVER['CONTENT_TYPE']) || strpos($_SERVER['CONTENT_TYPE'], 'application/json') === false ) {
+            //     wp_die('Invalid content type.');
+            // }
+
+            // Read the raw POST data
+            if ( !function_exists('file_get_contents') ) {
+                wp_die('file_get_contents function is not available.');
+            }
+
+            $json_data = json_decode(file_get_contents('php://input'), true);
+            $request_data = !empty($json_data) ? $json_data : $_REQUEST;
+
+            $this->wc_citcon_log('[ipn request data] ' . print_r($request_data, true));
+            $this->wc_citcon_log('[ipn request headers] ' . print_r(getallheaders(), true));
+
+			// $this->wc_citcon_log('[ipn notification] '.json_encode($request_data));
+
+            $transaction_id = $request_data['id'];
+            $reference = $request_data['reference'];
+            $status = $request_data['notify_status'];
+            $amount = $request_data['amount'];
+            $currency = $request_data['currency'];
+
+            $order_ids = explode('-', $reference);
 			$wc_order = new WC_Order(absint($order_ids[1]));
-			if (!$this->validateSignature()) {
+			if (!$this->validateSignature($request_data)) {
 				wp_die('Invalid signature.');
 			}
-			$this->wc_citcon_log('[ipn notification] '.json_encode($_REQUEST));
-			$success = 'success';
-			if ($status == $success) {
-				$wc_order->payment_complete($transactionId);
-				$woocommerce->cart->empty_cart();
-				//wp_redirect( $this->get_return_url( $wc_order ) ); //no need to redirect because it is aync notification
-				exit;
-			} else {
-				wp_die('Payment failed. Please try again.');
-			}
-		}
 
-		protected function validateSignature() {
-			if ( isset($_REQUEST['fields']) ) {
-				$fields = sanitize_text_field($_REQUEST['fields']);
-			}
-			$sign = '';
-			if ( isset($_REQUEST['sign']) ) {
-				$sign = sanitize_text_field($_REQUEST['sign']);
-			}
+            if ($status == 'success') {
+				$wc_order->payment_complete($transaction_id); // This will ensure stock reductions are made, and the status is changed to the correct value.
+				$wc_order->add_order_note(
+                    sprintf( __( 'A payment of $%1$s %2$s was processed on CitconPay.', 'woocommerce' )
+                     , number_format($amount / 100.00, 2, '.', '')
+                     , $currency )
+                    );
+
+				// $woocommerce->cart->empty_cart();
+				//wp_redirect( $this->get_return_url( $wc_order ) ); //no need to redirect because it is async notification
+				exit;
+			} else if ($status == 'authorized') {
+                $wc_order->update_status('on-hold',
+                    sprintf(
+                     __( 'A payment of $%1$s %2$s was authorized on CitconPay.', 'woocommerce' )
+                     , number_format($amount / 100.00, 2, '.', '')
+                     , $currency )
+                );
+				exit;
+            }
+
+            // If we reach here, the payment was not successful
+            // $wc_order->update_status('failed', __('Payment failed on CitconPay.', 'woocommerce'));
+
+            wp_die('Payment failed. Please try again.');
+        }
+
+        protected function validateSignature($request_data) {
+            $fields = $request_data['fields'];
+            $sign = $request_data['sign'];
 			$data['fields'] = $fields;
 			$tok = strtok($fields, ',');
 			while (false !== $tok) {
-				if (isset($_REQUEST[$tok])) {
-					$data[$tok] = sanitize_text_field($_REQUEST[$tok]);
+				if (isset($request_data[$tok])) {
+					$data[$tok] = sanitize_text_field($request_data[$tok]);
 				}
 				$tok = strtok(',');
 			}
@@ -371,6 +411,7 @@ function init_woocommerce_citconpay() {
 			$has_api_creds = !empty($this->token);
 			return $order && $order->get_transaction_id() && $has_api_creds;
 		}
+        
 
 		/**
 		 * Process a refund if supported.
