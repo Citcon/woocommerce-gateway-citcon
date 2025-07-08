@@ -3,7 +3,7 @@
  * Plugin Name: CitconPay Gateway for WooCommerce
  * Plugin Name:
  * Description: Allows you to use AliPay, WechatPay and UnionPay through CitconPay Gateway
- * Version: 1.5.1
+ * Version: 1.6.0
  * Author: citcon
  * Author URI: http://www.citcon.com
  *
@@ -49,8 +49,12 @@ function init_woocommerce_citconpay() {
 			$this->has_fields = true;
 			$this->init_form_fields();
 			$this->init_settings();
+
 			$this->token = $this->settings['token'];
 			$this->mode = $this->settings['mode'];
+			$this->threeDS = $this->settings['threeDS'];
+			$this->transactionMode = $this->settings['transactionMode'];
+			$this->partialCapture = $this->settings['partialCapture'];
 
            
             // variables
@@ -160,17 +164,39 @@ function init_woocommerce_citconpay() {
                 $this->form_fields[$key] = $value;
             }
 
-            $this->form_fields['threeDS'] = [
-                'title' => __('Paypal Credit Card 3DS Mode', 'woocommerce'),
-                'type' => 'select',
-                'options' => array(
-                    'auto' => __('Auto', 'woocommerce'),
-                    'always' => __('Always', 'woocommerce'),
-                ),
-                'default' => 'auto',
-                // 'desc_tip' => true,
-                'description' => __('Auto - Returns a 3D Secure contingency when it is a mandate in the region where you operate. <br/>Always - Trigger 3D Secure for every transaction.', 'woocommerce')
-            ];
+
+            // $this->form_fields['threeDS'] = [
+            //     'title' => __('Credit/Debit Card 3DS Mode', 'woocommerce'),
+            //     'type' => 'select',
+            //     'options' => array(
+            //         'auto' => __('Auto', 'woocommerce'),
+            //         'always' => __('Always', 'woocommerce'),
+            //     ),
+            //     'default' => 'auto',
+            //     // 'desc_tip' => auto,
+            //     'description' => __('Auto - Returns a 3D Secure contingency when it is a mandate in the region where you operate. <br/>Always - Trigger 3D Secure for every transaction.', 'woocommerce')
+            // ];
+
+            // $this->form_fields['transactionMode'] = [
+            //     'title' => __('Transaction Mode', 'woocommerce'),
+            //     'type' => 'select',
+            //     'options' => array(
+            //         'true' => __('Authorize and Capture', 'woocommerce'),
+            //         'false' => __('Authorize Only', 'woocommerce'),
+            //     ),
+            //     'default' => 'true',
+            //     // 'desc_tip' => true,
+            //     'description' => __('Select how transactions should be processed.', 'woocommerce')
+            // ];
+
+            // $this->form_fields['partialCapture'] = [
+            //     'title' => __('Partial Capture', 'woocommerce'),
+            //     'type' => 'checkbox',
+            //     'label' => __('Enable Partial Capture', 'woocommerce'),
+            //     'default' => 'false',
+            //     'description' => __('Allow orders to be partially captured multiple times.', 'woocommerce')
+            // ];
+
 
 		}
 
@@ -226,7 +252,7 @@ function init_woocommerce_citconpay() {
             $vendor = get_vendor_by($_POST['vendor']);
             if (isset($vendor) && isset($vendor->processPaymentBody)) {
                 $handleParams = $vendor->processPaymentBody;
-                $nhp_arg = $handleParams($nhp_arg, $order);
+                $nhp_arg = $handleParams($nhp_arg, $order, $this->settings);
             }
 
 			$post_values = '';
@@ -286,34 +312,52 @@ function init_woocommerce_citconpay() {
                     <?php 
                     $plugin_dir = plugin_dir_url(__FILE__);
                     foreach (get_vendor_list() as $key => $value) {
-                            $method = $value -> method;
-                            $title = $value -> title;
-                            $currency = get_option('woocommerce_currency');
-                            $icon = $value -> icon;
-                            $icon_height = $value -> icon_height;
+                        $method = $value -> method;
+                        $title = $value -> title;
+                        $currency = get_option('woocommerce_currency');
+                        $icon = $value -> icon;
+                        $icons = $value -> icons;
+                        $icon_height = $value -> icon_height;
 
-                            if (strcmp($this->settings[$method],'yes')==0 && in_array($currency, $value -> currency)) { ?>
-                                <li class="wc_payment_method">
-                                    <div style="display: flex; align-items: center;">
-                                        <input id="citconpay_pay_method_<?php echo $method; ?>" 
-                                                class="input-radio" 
-                                                name="vendor" 
-                                                value="<?php echo $method; ?>"
-                                                data-order_button_text="" 
-                                                type="radio" required 
-                                            <?php if (strcmp($this->settings['checked'],$method)==0) { ?>
-                                                checked="checked"
-                                            <?php } ?>
+                        if (strcmp($this->settings[$method],'yes')==0 && in_array($currency, $value -> currency)) { ?>
+                            <li class="wc_payment_method">
+                                <div style="display: flex; align-items: center;">
+                                    <input id="citconpay_pay_method_<?php echo $method; ?>" 
+                                            class="input-radio" 
+                                            name="vendor" 
+                                            value="<?php echo $method; ?>"
+                                            data-order_button_text="" 
+                                            type="radio" required 
+                                        <?php if (strcmp($this->settings['checked'],$method)==0) { ?>
+                                            checked="checked"
+                                        <?php } ?>
+                                        >
+
+                                    <label for="citconpay_pay_method_<?php echo $method; ?>">
+                                        <?php if (isset($icons) && is_array($icons)) { ?>
+                                            <div class="citconpay-icons" style="display: flex; align-items: center; "
+                                            title="<?php esc_html_e($title); ?>"
                                             >
-                                        <label for="citconpay_pay_method_<?php echo $method; ?>">
+                                                <?php foreach ($icons as $ico) { ?>
+                                                    <img src="<?php echo $plugin_dir . $ico; ?>"
+                                                        style="height: <?php echo $icon_height; ?>px; margin-left: -2px; margin-right: 6px;"
+                                                    />
+                                                <?php } ?>
+                                            </div>
+                                        <?php } else { ?>
+
                                             <img src="<?php echo $plugin_dir . $icon; ?>" 
                                             style="height: <?php echo $icon_height; ?>px; margin-left: -2px;" alt="Citcon Pay"
                                             title="<?php esc_html_e($title); ?>"
                                             />
                                             <!-- <?php esc_html_e($title); ?>  -->
-                                        </label>
-                                    </div>
-                                </li>
+
+                                        <?php } ?>
+
+                                    </label>
+                                    
+                                </div>
+                            </li>
                         <?php } ?>
                     <?php } ?>
 				</ul>

@@ -42,6 +42,8 @@ class Vendor {
 
     public $icon;
 
+    public $icons;
+
     public $icon_height = '30';
 
     public $hide_form_title = 'yes';
@@ -54,6 +56,7 @@ class Vendor {
         $this->method = $data['method'];
         $this->checked = $data['checked'];
         $this->icon = $data['icon'];
+        $this->icons = $data['icons'];
 
         if (isset($data['hide_form_title'])) {
             $this->hide_form_title = $data['hide_form_title'];
@@ -125,11 +128,10 @@ $cc_vendors = [
         'enabled' => 'no',
         'checked' => 'no',
         'icon' => 'images/paypal-logo.png',
-        'processPaymentBody' => function ($params, $order) {
+        'processPaymentBody' => function ($params, $order, $settings) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
-            // return $params;
-            return process_billing_address($params, $order);
+            return process_billing_address($params, $order, $settings);
         }
     ]),
 
@@ -142,11 +144,10 @@ $cc_vendors = [
         'checked' => 'no',
         'icon' => 'images/venmo-logo.png',
         'icon_height' => '20',
-        'processPaymentBody' => function ($params, $order) {
+        'processPaymentBody' => function ($params, $order, $settings) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
-            // return $params;
-            return process_billing_address($params, $order);
+            return process_billing_address($params, $order, $settings);
         },
     ]),
 
@@ -159,7 +160,7 @@ $cc_vendors = [
         'checked' => 'no',
         'icon' => 'images/cashapp-logo.png',
         'icon_height' => '22',
-        'processPaymentBody' => function ($params) {
+        'processPaymentBody' => function ($params, $order, $settings) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
             return $params;
@@ -167,14 +168,24 @@ $cc_vendors = [
     ]),
 
     new Vendor([
-        'method' => 'paypal_card',
-        'title' => 'Paypal Card',
-        'currency' => ['USD'],
+        'method' => 'card',
+        'title' => 'Credit/Debit Card',
+        'currency' => [ 'USD', 'CAD',
+                        'AUD', 'CZK', 'DKK', 'EUR', 'HKD',
+                        'HUF', 'ILS', 'JPY', 'MXN', 'TWD',
+                        'NZD', 'NOK', 'PHP', 'PLN', 'GBP',
+                        'SGD', 'SEK', 'CHF', 'THB'],
         'country' => '',
-        'enabled' => 'no', 
+        'enabled' => 'no',
         'checked' => 'no',
-        'icon' => 'images/paypal-logo.png',
-       
+        'icons' => ['images/visa-logo.jpg', 'images/master-logo.jpg', 'images/amex-logo.jpg', 'images/discover-logo.jpg'],
+        'processPaymentBody' => function ($params, $order, $settings) {
+            $params['country'] = 'US';
+            $params['auto_capture'] = 'true';
+            // $params['3ds[mode]'] = $settings['threeDS'];
+
+            return process_billing_address($params, $order, $settings);
+        },
     ]),
 
 ];
@@ -194,7 +205,9 @@ function get_country_state_name($country, $state) {
 function process_billing_address($params, $order) {
     $goods = [];
     $data = [];
-    
+
+    $apportioned_tax = true;
+
     $order_data = $order -> data;
     $factor = get_currency_unit_conversion_factor($order->get_currency());
 
@@ -219,6 +232,8 @@ function process_billing_address($params, $order) {
 
     $items = $order -> get_items(); // [WC_Order_Item_Product]
 
+    $sum_total_tax_amount = 0;
+
     // goods item
     if (isset($items) && count($items) > 0) {
         foreach ($items as $item) { // [WC_Order_Item_Product]
@@ -235,19 +250,26 @@ function process_billing_address($params, $order) {
             $sku = $product instanceof WC_Product ? $product->get_sku() : '';
             $total_tax_amount = ((float) ($item -> get_total_tax())) * $factor;
             
-            $unit_tax_amount = $total_tax_amount / $quantity;
+            $sum_total_tax_amount += $total_tax_amount;
+
             $total_discount_amount = ((float) ($item -> get_subtotal()) - (float) ($item -> get_total())) * $factor;
 
-            array_push($data, [
+            $data_item = [
                 'sku'                   => $sku,
                 'name'                  => $name,
                 'quantity'              => $quantity,
                 'product_type'          => $product_type,
                 'unit_amount'           => floor($unit_amount),
-                'unit_tax_amount'       => floor($unit_tax_amount),
                 'total_tax_amount'      => round($total_tax_amount),
                 'total_discount_amount' => round($total_discount_amount),
-            ]);
+            ];
+
+            if ($apportioned_tax) {
+                $unit_tax_amount = $total_tax_amount / $quantity;
+                $data_item['unit_tax_amount'] = floor($unit_tax_amount);
+            }
+
+            array_push($data, $data_item);
         }
     }
 
@@ -255,16 +277,22 @@ function process_billing_address($params, $order) {
     $order_fees = $order->get_fees();
     if (isset($order_fees)) {
         foreach ($order_fees as $fee) { // [WC_Order_Item_Fee]
-            array_push($data, [
+            $data_item = [
                 'sku'                   => '',
                 'name'                  => $fee -> get_name(),
                 'quantity'              => 1,
                 'product_type'          => 'physical',
                 'unit_amount'           => round($fee -> get_amount() * $factor),
-                'unit_tax_amount'       => round($fee -> get_total_tax() * $factor),
                 'total_tax_amount'      => round($fee -> get_total_tax() * $factor),
                 'total_discount_amount' => 0,
-            ]);
+            ];
+            $sum_total_tax_amount += $data_item['total_tax_amount'];
+
+            if ($apportioned_tax) {
+                $data_item['unit_tax_amount'] = round($fee -> get_total_tax() * $factor);
+            }
+            
+            array_push($data, $data_item);
         }
     }
 
@@ -275,13 +303,17 @@ function process_billing_address($params, $order) {
         $shipping = [];
         $_shipping = $order_data['shipping'];
         if (isset($_shipping)) {
-            // $_shipping_amount = ($order->get_shipping_total() + $order->get_shipping_tax()) * $factor;
+            if ($apportioned_tax) {
+                $_shipping_amount = ($order->get_shipping_total() + $order->get_shipping_tax()) * $factor;
+            } else {
+                $_shipping_amount = ($order->get_shipping_total()) * $factor;
+                $_shipping_tax_amount = ($order->get_shipping_tax()) * $factor;
+            }
 
-            $_shipping_amount = ($order->get_shipping_total()) * $factor;
-            $_shipping_tax_amount = ($order->get_shipping_tax()) * $factor;
 
             $_shipping_country = $order->get_shipping_country();
             $_shipping_state = get_country_state_name($_shipping_country, $order->get_shipping_state());
+
             $shipping = [
                 'first_name'    => $order->get_shipping_first_name(),
                 'last_name'     => $order->get_shipping_last_name(),
@@ -298,13 +330,22 @@ function process_billing_address($params, $order) {
                 'type'          => 'SHIPPING', // shipping, pickup_in_person, default is shipping
             ];
 
+            $sum_total_tax_amount += $shipping['tax_amount'];
+
             $shipping = array_filter($shipping, function($v) { return !is_null($v); });
 
             $goods['shipping'] = $shipping;
         }
     }
 
-    // $goods = verify_and_smooth_amount($order, $goods, $factor);
+    $goods['additional'] = [
+        'total_tax_amount'      => round($sum_total_tax_amount),
+    ];
+
+
+    if ($apportioned_tax) {
+        $goods = verify_and_smooth_amount($order, $goods, $factor);
+    }
 
     $params['goods'] = json_encode($goods);
 
@@ -421,7 +462,6 @@ function get_reference_code($order_id) {
     }
 }
 
-
 function get_vendor_list() {
     global $cc_vendors;
     return $cc_vendors;
@@ -461,6 +501,7 @@ function get_vendor_by($method) {
 }
 
 function get_currency_unit_conversion_factor($currency) {
+    // reference: https://en.wikipedia.org/wiki/ISO_4217
     if (in_array($currency, ['KRW','JPY'])) {
         return 1;
     }
