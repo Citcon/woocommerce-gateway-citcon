@@ -52,9 +52,6 @@ function init_woocommerce_citconpay() {
 
 			$this->token = $this->settings['token'];
 			$this->mode = $this->settings['mode'];
-			$this->threeDS = $this->settings['threeDS'];
-			$this->transactionMode = $this->settings['transactionMode'];
-			$this->partialCapture = $this->settings['partialCapture'];
 
            
             // variables

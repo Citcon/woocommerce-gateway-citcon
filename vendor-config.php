@@ -182,8 +182,6 @@ $cc_vendors = [
         'processPaymentBody' => function ($params, $order, $settings) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
-            // $params['3ds[mode]'] = $settings['threeDS'];
-
             return process_billing_address($params, $order, $settings);
         },
     ]),
