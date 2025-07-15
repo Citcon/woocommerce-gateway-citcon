@@ -206,7 +206,7 @@ function process_billing_address($params, $order) {
     $goods = [];
     $data = [];
 
-    $apportioned_tax = true;
+    $apportioned_tax = false;
 
     $order_data = $order -> data;
     $factor = get_currency_unit_conversion_factor($order->get_currency());
@@ -286,6 +286,7 @@ function process_billing_address($params, $order) {
                 'total_tax_amount'      => round($fee -> get_total_tax() * $factor),
                 'total_discount_amount' => 0,
             ];
+            
             $sum_total_tax_amount += $data_item['total_tax_amount'];
 
             if ($apportioned_tax) {
@@ -338,13 +339,10 @@ function process_billing_address($params, $order) {
         }
     }
 
-    $goods['additional'] = [
-        'total_tax_amount'      => round($sum_total_tax_amount),
-    ];
-
-
     if ($apportioned_tax) {
         $goods = verify_and_smooth_amount($order, $goods, $factor);
+    } else {
+        $goods['total_tax_amount'] = round($sum_total_tax_amount);
     }
 
     $params['goods'] = json_encode($goods);
