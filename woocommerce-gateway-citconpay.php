@@ -12,7 +12,7 @@
  */
 
 add_action('plugins_loaded', 'init_woocommerce_citconpay', 0);
-define("WC_CITCON_GATEWAY_VERSION", "1.5.1");
+define("WC_CITCON_GATEWAY_VERSION", "1.6.0");
 define("WC_CITCON_GATEWAY_LOG" , "[wc-citcon]");
 require_once dirname( __FILE__ ) . '/vendor-config.php';
 
