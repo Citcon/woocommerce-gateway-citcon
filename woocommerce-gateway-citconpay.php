@@ -165,37 +165,7 @@ function init_woocommerce_citconpay() {
             }
 
 
-            // $this->form_fields['threeDS'] = [
-            //     'title' => __('Credit/Debit Card 3DS Mode', 'woocommerce'),
-            //     'type' => 'select',
-            //     'options' => array(
-            //         'auto' => __('Auto', 'woocommerce'),
-            //         'always' => __('Always', 'woocommerce'),
-            //     ),
-            //     'default' => 'auto',
-            //     // 'desc_tip' => auto,
-            //     'description' => __('Auto - Returns a 3D Secure contingency when it is a mandate in the region where you operate. <br/>Always - Trigger 3D Secure for every transaction.', 'woocommerce')
-            // ];
-
-            // $this->form_fields['transactionMode'] = [
-            //     'title' => __('Transaction Mode', 'woocommerce'),
-            //     'type' => 'select',
-            //     'options' => array(
-            //         'true' => __('Authorize and Capture', 'woocommerce'),
-            //         'false' => __('Authorize Only', 'woocommerce'),
-            //     ),
-            //     'default' => 'true',
-            //     // 'desc_tip' => true,
-            //     'description' => __('Select how transactions should be processed.', 'woocommerce')
-            // ];
-
-            // $this->form_fields['partialCapture'] = [
-            //     'title' => __('Partial Capture', 'woocommerce'),
-            //     'type' => 'checkbox',
-            //     'label' => __('Enable Partial Capture', 'woocommerce'),
-            //     'default' => 'false',
-            //     'description' => __('Allow orders to be partially captured multiple times.', 'woocommerce')
-            // ];
+            
 
 
 		}
