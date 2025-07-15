@@ -180,17 +180,15 @@ function init_woocommerce_citconpay() {
 
             $time_stamp = gmdate('YmdHis');
 			$orderid = $time_stamp . '-' . $order_id;
+			$currency = get_option('woocommerce_currency');
+            $factor = get_currency_unit_conversion_factor($currency);
 
 			$nhp_arg = [];
-			$currency = get_option('woocommerce_currency');
 			$nhp_arg['currency'] = $currency;
 			$oder_total = ( WC()->version < '2.7.0' ) ? $order->order_total : $order->get_total();
-			$currencyJPY = 'JPY';
-			if ($currency != $currencyJPY) {
-				$nhp_arg['amount'] = $oder_total * 100;
-			} else {
-				$nhp_arg['amount'] = $oder_total;
-			}
+
+            $nhp_arg['amount'] = $oder_total * $factor;
+
 			$nhp_arg['ipn_url'] = urlencode($this->notify_url);
             $result_url = urlencode($order->get_checkout_order_received_url());
 			$nhp_arg['callback_url_success'] = $nhp_arg['callback_url_fail'] = $nhp_arg['mobile_result_url'] = $result_url;
@@ -376,24 +374,18 @@ function init_woocommerce_citconpay() {
 				wp_die('Invalid signature.');
 			}
 
+            $factor = get_currency_unit_conversion_factor($currency);
+
             if ($status == 'success') {
 				$wc_order->payment_complete($transaction_id); // This will ensure stock reductions are made, and the status is changed to the correct value.
 				$wc_order->add_order_note(
                     sprintf( __( 'A payment of $%1$s %2$s was processed on CitconPay.', 'woocommerce' )
-                     , number_format($amount / 100.00, 2, '.', '')
+                     , number_format($amount / $factor, 2, '.', '')
                      , $currency )
                     );
 
 				// $woocommerce->cart->empty_cart();
 				//wp_redirect( $this->get_return_url( $wc_order ) ); //no need to redirect because it is async notification
-				exit;
-			} else if ($status == 'authorized') {
-                $wc_order->update_status('on-hold',
-                    sprintf(
-                     __( 'A payment of $%1$s %2$s was authorized on CitconPay.', 'woocommerce' )
-                     , number_format($amount / 100.00, 2, '.', '')
-                     , $currency )
-                );
 				exit;
             }
 
@@ -451,8 +443,11 @@ function init_woocommerce_citconpay() {
 				return new WP_Error('error', __('Refund failed.', 'woocommerce'));
 			}
 
+            $currency = $order->get_currency();
+            $factor = get_currency_unit_conversion_factor($currency);
+
 			$request = array(
-				'amount' => $amount * 100,
+				'amount' => $amount * $factor,
 				'currency' => $order->get_currency(),
 				'transaction_id' => $order->get_transaction_id(),
 				'reason' => isset($reason) ? $reason: 'No reason was given.', // ppcp will not success if empty reason
