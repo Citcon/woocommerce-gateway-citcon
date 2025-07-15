@@ -258,13 +258,13 @@ function process_billing_address($params, $order) {
                 'quantity'              => $quantity,
                 'product_type'          => $product_type,
                 'unit_amount'           => floor($unit_amount),
-                'total_tax_amount'      => round($total_tax_amount),
                 'total_discount_amount' => round($total_discount_amount),
             ];
 
             if ($apportioned_tax) {
                 $unit_tax_amount = $total_tax_amount / $quantity;
                 $data_item['unit_tax_amount'] = floor($unit_tax_amount);
+                $data_item['total_tax_amount'] = round($total_tax_amount);
             }
 
             array_push($data, $data_item);
@@ -275,20 +275,21 @@ function process_billing_address($params, $order) {
     $order_fees = $order->get_fees();
     if (isset($order_fees)) {
         foreach ($order_fees as $fee) { // [WC_Order_Item_Fee]
+            $total_tax_amount = round($fee -> get_total_tax() * $factor);
             $data_item = [
                 'sku'                   => '',
                 'name'                  => $fee -> get_name(),
                 'quantity'              => 1,
                 'product_type'          => 'physical',
                 'unit_amount'           => round($fee -> get_amount() * $factor),
-                'total_tax_amount'      => round($fee -> get_total_tax() * $factor),
                 'total_discount_amount' => 0,
             ];
             
-            $sum_total_tax_amount += $data_item['total_tax_amount'];
+            $sum_total_tax_amount += $total_tax_amount;
 
             if ($apportioned_tax) {
-                $data_item['unit_tax_amount'] = round($fee -> get_total_tax() * $factor);
+                $data_item['unit_tax_amount'] = $total_tax_amount;
+                $data_item['total_tax_amount'] = $total_tax_amount;
             }
             
             array_push($data, $data_item);
@@ -302,22 +303,9 @@ function process_billing_address($params, $order) {
         $shipping = [];
         $_shipping = $order_data['shipping'];
         if (isset($_shipping)) {
-            if ($apportioned_tax) {
-                $_shipping_amount = ($order->get_shipping_total() + $order->get_shipping_tax()) * $factor;
-            } else {
-                $_shipping_amount = ($order->get_shipping_total()) * $factor;
-                $_shipping_tax_amount = ($order->get_shipping_tax()) * $factor;
-            }
-
-
-            $_shipping_country = $order->get_shipping_country();
-            $_shipping_state = get_country_state_name($_shipping_country, $order->get_shipping_state());
-
             $shipping = [
                 'first_name'    => $order->get_shipping_first_name(),
                 'last_name'     => $order->get_shipping_last_name(),
-                'amount'        => floor($_shipping_amount),
-                'tax_amount'    => floor($_shipping_tax_amount),
                 'phone'         => $order->get_shipping_phone() ?: null,
                 'email'         => !empty($_shipping->email) ? $_shipping->email : null,
                 'country'       => $_shipping_country,
@@ -328,6 +316,20 @@ function process_billing_address($params, $order) {
                 'zip'           => $order->get_shipping_postcode(),
                 'type'          => 'SHIPPING', // shipping, pickup_in_person, default is shipping
             ];
+
+            $_shipping_amount = ($order->get_shipping_total()) * $factor;
+            $_shipping_tax_amount = ($order->get_shipping_tax()) * $factor;
+
+            if ($apportioned_tax) {
+                $shipping['amount'] = floor($_shipping_amount * $_shipping_tax_amount);
+            } else {
+                $shipping['amount'] = floor($_shipping_amount);
+                $shipping['tax_amount'] = floor($_shipping_tax_amount);
+            }
+
+            $_shipping_country = $order->get_shipping_country();
+            $_shipping_state = get_country_state_name($_shipping_country, $order->get_shipping_state());
+            
 
             $sum_total_tax_amount += $shipping['tax_amount'];
 
