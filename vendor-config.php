@@ -342,7 +342,9 @@ function process_billing_address($params, $order) {
     if ($apportioned_tax) {
         $goods = verify_and_smooth_amount($order, $goods, $factor);
     } else {
-        $goods['total_tax_amount'] = round($sum_total_tax_amount);
+        $goods['tax'] = [
+            'total' => round($sum_total_tax_amount)
+        ];
     }
 
     $params['goods'] = json_encode($goods);
