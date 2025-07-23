@@ -11,10 +11,33 @@
  * @author citcon
  */
 
+
+
+add_action('before_woocommerce_init', 'rudr_cart_checkout_blocks_compatibility' );
 add_action('plugins_loaded', 'init_woocommerce_citconpay', 0);
-define("WC_CITCON_GATEWAY_VERSION", "1.6.0");
-define("WC_CITCON_GATEWAY_LOG" , "[wc-citcon]");
+
+define("WC_GATEWAY_CITCON_VERSION", "1.6.0");
+define("WC_GATEWAY_CITCON_LOG" , "[wc-citcon]");
+
+define( 'WC_GATEWAY_CITCON_URL', untrailingslashit( plugins_url( basename( plugin_dir_path( __FILE__ ) ), basename( __FILE__ ) ) ) );
+define( 'WC_GATEWAY_CITCON_PATH', untrailingslashit( plugin_dir_path( __FILE__ ) ) );
+
+
+function rudr_cart_checkout_blocks_compatibility() {
+    if( class_exists( '\Automattic\WooCommerce\Utilities\FeaturesUtil' ) ) {
+        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility(
+                'cart_checkout_blocks',
+                __FILE__,
+                true // true (compatible, default) or false (not compatible)
+            );
+    }
+}
+
+
+
 require_once dirname( __FILE__ ) . '/vendor-config.php';
+
+use Automattic\WooCommerce\Blocks\Payments\PaymentMethodRegistry;
 
 
 function init_woocommerce_citconpay() {
@@ -23,24 +46,31 @@ function init_woocommerce_citconpay() {
 		return;
 	}
 
-	class Woocommerce_Citconpay extends WC_Payment_Gateway {
+	class WC_Gateway_Citconpay extends WC_Payment_Gateway {
+
+        const ID = 'citconpay';
+
+        public $token;
+        public $mode;
+        public $notify_url;
+        public $gateway_url_payment;
+        public $gateway_url_refund;
 
 
 		public function __construct() {
 
 			global $woocommerce;
-
-			$plugin_dir = plugin_dir_url(__FILE__);
 			$this->id = 'citconpay';
-            // $this->icon = apply_filters('woocommerce_citconpay_icon', '' . $plugin_dir . 'citconpay_methods.png');
-            $this->icon = apply_filters('woocommerce_citconpay_icon', '' . $plugin_dir . 'images/citcon-pay-logo.svg');
+            
+            // $this->icon = apply_filters('woocommerce_citconpay_icon', WC_GATEWAY_CITCON_URL . 'citconpay_methods.png');
+            $this->icon = apply_filters('woocommerce_citconpay_icon', WC_GATEWAY_CITCON_URL . '/images/citcon-pay-logo.svg');
 
-            $this->method_title       = __( 'CitconPay', 'woocommerce-gateway-citconpay' );
+            $this->method_title       = __( 'CitconPay', 'woocommerce' );
             $this->method_description = sprintf(
                 /* translators: 1: html starting code 2: html end code */
                     __(
                         '%1$sCitconPay%2$s Gateway supports AliPay, WeChatPay, Union Pay and Paypal.',
-                        'woocommerce-gateway-citconpay'
+                        'woocommerce'
                     ),
                     '<a href="http://citcon.com/">',
                     '</a>'
@@ -52,7 +82,6 @@ function init_woocommerce_citconpay() {
 
 			$this->token = $this->settings['token'];
 			$this->mode = $this->settings['mode'];
-
            
             // variables
             $this->title = $this->settings['title'];
@@ -64,17 +93,40 @@ function init_woocommerce_citconpay() {
 				$this->currency = $this->settings['currency'];
 			}
 			$this->notify_url = add_query_arg('wc-api', 'wc_citconpay', home_url('/'));
-            $this->gateway_url = get_api_url($this->mode, "chop");
+            $this->gateway_url_payment = get_api_url($this->mode, "chop");
+            $this->gateway_url_refund = get_api_url($this->mode, "refund");
+            
+
+			if (!$this->is_valid_for_use()) {
+				$this->enabled = "no";
+			}
+
 
 			// actions
 			add_action('woocommerce_update_options_payment_gateways', array($this, 'process_admin_options'));
 			add_action('woocommerce_update_options_payment_gateways_' . $this->id, array($this, 'process_admin_options'));
 			add_action('woocommerce_api_wc_citconpay', array($this, 'check_ipn_response'));
 
-			if (!$this->is_valid_for_use()) {
-				$this->enabled = false;
-			}
+            add_action( 'wp_enqueue_scripts', array( $this, 'init_website_assets' ) );
+            add_action( 'enqueue_block_assets', array( $this, 'init_website_assets' ) );
+
+
+            add_action( 'woocommerce_rest_checkout_process_payment_with_context', array( $this, 'checkout_process_payment_with_context' ) );
+
+
 		}
+
+
+        /**
+         * Process payment with context
+         * Note: This function is used for the REST API to process payment with context.
+         * It is not used in the web checkout process.
+         * @param array $context The context for the payment process.
+         */
+        function checkout_process_payment_with_context($context) {
+           //
+        }
+        
 
 		/**
 		 * Check if this gateway is enabled and available in the user's country
@@ -148,7 +200,7 @@ function init_woocommerce_citconpay() {
             );
 
             $title_list = get_title_list();
-            $this->form_fields['checked'] = [
+            $this->form_fields['selectedMethod'] = [
                 'title' => __('Default Payment Method', 'woocommerce'),
                 'type' => 'select',
                 'options' => $title_list,
@@ -167,6 +219,22 @@ function init_woocommerce_citconpay() {
 
 		}
 
+
+        function get_posted_vendor() {
+            $vendor = null;
+            if (isset($_POST['vendor'])) {
+                $vendor = sanitize_key($_POST['vendor']);
+            } elseif (isset($_REQUEST['vendor'])) {
+                $vendor = sanitize_key($_REQUEST['vendor']);
+            } elseif (isset($_POST['payment_data'])) {
+                $data = json_decode(stripslashes($_POST['payment_data']), true);
+                if (isset($data['vendor'])) {
+                    $vendor = sanitize_key($data['vendor']);
+                }
+            }
+            return $vendor;
+        }
+
 		/**
 		 *
 		 * Process payment
@@ -174,6 +242,9 @@ function init_woocommerce_citconpay() {
 		 */
 		public function process_payment( $order_id) {
 			global $woocommerce;
+
+            $vendor = $this->get_posted_vendor();
+
 
 			$order = new WC_Order($order_id);
             $paymentData = $order->data;
@@ -198,8 +269,8 @@ function init_woocommerce_citconpay() {
 			$nhp_arg['reference'] = $orderid;
 
 			if ( !wp_verify_nonce('', 'woocommerce-process_checkout')
-				&& !empty($_POST['vendor'])
-				&& sanitize_key($_POST['vendor']) ) {
+				&& !empty($vendor)
+				&& sanitize_key($vendor) ) {
 				$nhp_arg['payment_method'] = sanitize_key($_POST['vendor']);
 			}
 			//$nhp_arg['terminal']=$this->terminal;
@@ -208,13 +279,13 @@ function init_woocommerce_citconpay() {
             $nhp_arg['source'] = 'woocommerce';
 
             $ext_arg = [
-				"app_version" => WC_CITCON_GATEWAY_VERSION,
+				"app_version" => WC_GATEWAY_CITCON_VERSION,
 				"woocommerce" => WC_VERSION,
 				"wordpress" => $GLOBALS["wp_version"]
 			];
 			$nhp_arg['ext'] = urlencode(json_encode($ext_arg));
 
-            $vendor = get_vendor_by($_POST['vendor']);
+            $vendor = get_vendor_by($vendor);
             if (isset($vendor) && isset($vendor->processPaymentBody)) {
                 $handleParams = $vendor->processPaymentBody;
                 $nhp_arg = $handleParams($nhp_arg, $order, $this->settings);
@@ -228,7 +299,8 @@ function init_woocommerce_citconpay() {
 
 			$this->wc_citcon_log('[pay request] '.$post_values);
 
-			$response = wp_remote_post($this->gateway_url, array(
+
+			$response = wp_remote_post($this->gateway_url_payment, array(
 				'body' => $post_values,
 				'method' => 'POST',
 				'headers' => array('Content-Type' => 'application/x-www-form-urlencoded', 'Authorization' => 'Bearer ' . $this->token),
@@ -260,6 +332,15 @@ function init_woocommerce_citconpay() {
 			}
 		}
 
+        /**
+         * Check If The Gateway Is Available For Use.
+         *
+         * @return bool
+         */
+        public function is_available() {
+            return $this->enabled === "yes";
+        }
+
 		/**
 		 * Payment form on checkout page, front page
 		 */
@@ -275,7 +356,6 @@ function init_woocommerce_citconpay() {
 				<legend><label><?php esc_html_e('Method of payment'); ?><span class="required">*</span></label></legend>
 				<ul class="wc_payment_methods payment_methods methods">
                     <?php 
-                    $plugin_dir = plugin_dir_url(__FILE__);
                     foreach (get_vendor_list() as $key => $value) {
                         $method = $value -> method;
                         $title = $value -> title;
@@ -293,7 +373,7 @@ function init_woocommerce_citconpay() {
                                             value="<?php echo $method; ?>"
                                             data-order_button_text="" 
                                             type="radio" required 
-                                        <?php if (strcmp($this->settings['checked'],$method)==0) { ?>
+                                        <?php if (strcmp($this->settings['selectedMethod'],$method)==0) { ?>
                                             checked="checked"
                                         <?php } ?>
                                         >
@@ -304,14 +384,14 @@ function init_woocommerce_citconpay() {
                                             title="<?php esc_html_e($title); ?>"
                                             >
                                                 <?php foreach ($icons as $ico) { ?>
-                                                    <img src="<?php echo $plugin_dir . $ico; ?>"
+                                                    <img src="<?php echo $ico; ?>"
                                                         style="height: <?php echo $icon_height; ?>px; margin-left: -2px; margin-right: 6px;"
                                                     />
                                                 <?php } ?>
                                             </div>
                                         <?php } else { ?>
 
-                                            <img src="<?php echo $plugin_dir . $icon; ?>" 
+                                            <img src="<?php echo $icon; ?>" 
                                             style="height: <?php echo $icon_height; ?>px; margin-left: -2px;" alt="Citcon Pay"
                                             title="<?php esc_html_e($title); ?>"
                                             />
@@ -386,13 +466,15 @@ function init_woocommerce_citconpay() {
 
 				// $woocommerce->cart->empty_cart();
 				//wp_redirect( $this->get_return_url( $wc_order ) ); //no need to redirect because it is async notification
-				exit;
-            }
+
+                exit;
+            } 
 
             // If we reach here, the payment was not successful
             // $wc_order->update_status('failed', __('Payment failed on CitconPay.', 'woocommerce'));
 
             wp_die('Payment failed. Please try again.');
+
         }
 
         protected function validateSignature($request_data) {
@@ -455,8 +537,6 @@ function init_woocommerce_citconpay() {
 
 			$post_values = http_build_query($request);
 
-            $this->gateway_url_refund = get_api_url($this->mode, "refund");
-
 			$this->wc_citcon_log('[refund request] '.$post_values);
 			$result = wp_remote_post($this->gateway_url_refund, array(
 				'body' => $post_values,
@@ -483,7 +563,26 @@ function init_woocommerce_citconpay() {
 		}
 
 		private function wc_citcon_log($messge) {
-			error_log(WC_CITCON_GATEWAY_LOG . " $messge");
+			error_log(WC_GATEWAY_CITCON_LOG . " $messge");
+		}
+
+
+        /**
+		 * Note: Hooked onto the "wp_enqueue_scripts" Action to avoid the WordPress Notice warnings
+		 *
+		 * @since   1.6.0
+		 * @see     self::__construct()     For hook attachment.
+		 */
+		public function init_website_assets() {
+
+			if ( is_checkout() && $this->enabled === 'yes' && $this->is_available() ) {
+                wp_enqueue_style(
+                    'citconpay-css',
+                    WC_GATEWAY_CITCON_URL . '/assets/css/citconpay.css',
+                    [],
+                    WC_GATEWAY_CITCON_VERSION
+                );
+			}
 		}
 	}
 
@@ -491,9 +590,30 @@ function init_woocommerce_citconpay() {
 	 * Add the gateway to WooCommerce
 	 **/
 	function add_citconpay_gateway( $methods) {
-		$methods[] = 'Woocommerce_Citconpay';
+		$methods[] = 'WC_Gateway_Citconpay';
 		return $methods;
 	}
 
 	add_filter('woocommerce_payment_gateways', 'add_citconpay_gateway');
+
+
+
+    
+    function add_woocommerce_blocks_support() {
+        if ( class_exists( 'Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType' ) ) {
+            require_once __DIR__ . '/class-wc-gateway-citcon-blocks-support.php';
+            add_action(
+                'woocommerce_blocks_payment_method_type_registration',
+                function ( PaymentMethodRegistry $payment_method_registry ) {
+                    $payment_method_registry->register( new WC_Gateway_Citcon_Blocks_Support() );
+                }
+            );
+        }
+    }
+
+	add_action( 'woocommerce_blocks_loaded', 'add_woocommerce_blocks_support' );
+
+
+    
+
 }

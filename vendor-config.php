@@ -48,6 +48,8 @@ class Vendor {
 
     public $hide_form_title = 'yes';
 
+    public $processPaymentBody;
+
     public function __construct($data) {
         $this->title = $data['title'];
         $this->currency = $data['currency'];
@@ -55,8 +57,8 @@ class Vendor {
         $this->enabled = $data['enabled'];
         $this->method = $data['method'];
         $this->checked = $data['checked'];
-        $this->icon = $data['icon'];
-        $this->icons = $data['icons'];
+        $this->icon = $data['icon'] ?? null;
+        $this->icons = $data['icons'] ?? null;
 
         if (isset($data['hide_form_title'])) {
             $this->hide_form_title = $data['hide_form_title'];
@@ -303,6 +305,10 @@ function process_billing_address($params, $order) {
         $shipping = [];
         $_shipping = $order_data['shipping'];
         if (isset($_shipping)) {
+            $_shipping_country = $order->get_shipping_country();
+            $_shipping_state = get_country_state_name($_shipping_country, $order->get_shipping_state());
+
+
             $shipping = [
                 'first_name'    => $order->get_shipping_first_name(),
                 'last_name'     => $order->get_shipping_last_name(),
@@ -327,8 +333,6 @@ function process_billing_address($params, $order) {
                 $shipping['tax_amount'] = floor($_shipping_tax_amount);
             }
 
-            $_shipping_country = $order->get_shipping_country();
-            $_shipping_state = get_country_state_name($_shipping_country, $order->get_shipping_state());
             
 
             $sum_total_tax_amount += $shipping['tax_amount'];
@@ -464,6 +468,20 @@ function get_reference_code($order_id) {
 
 function get_vendor_list() {
     global $cc_vendors;
+
+    foreach ($cc_vendors as $vendor) {
+        if ($vendor->icon && strpos($vendor->icon, 'http') !== 0) {
+            $vendor->icon = WC_GATEWAY_CITCON_URL . '/' . ltrim($vendor->icon, '/');
+        }
+        if ($vendor->icons && is_array($vendor->icons)) {
+            foreach ($vendor->icons as $k => $icon) {
+                if (strpos($icon, 'http') !== 0) {
+                    $vendor->icons[$k] = WC_GATEWAY_CITCON_URL . '/' . ltrim($icon, '/');
+                }
+            }
+        }
+    }
+
     return $cc_vendors;
 }
 
