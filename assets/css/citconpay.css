@@ -30,7 +30,7 @@
 
 .wc-citconpay .citconpay-icon,
 .wc-citconpay .citconpay-icons img {
-    height: 30px !important;
+    height: 30px;
     width: auto;
     margin: 0 4px;
     vertical-align: middle;

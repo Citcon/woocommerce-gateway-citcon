@@ -38,7 +38,7 @@ const CitconPayContent = ({ selectedVendor, onChange }) => (
                         src={icon}
                         className="citconpay-icon"
                         alt={vendor.title}
-                        style={vendor.icon_height ? { height: `${vendor.icon_height}px` } : undefined}
+                        style={vendor.icon_height ? { height: `${vendor.icon_height}` } : undefined}
                       />
                     ))}
                   </div>
@@ -48,7 +48,7 @@ const CitconPayContent = ({ selectedVendor, onChange }) => (
                     className="citconpay-icon"
                     alt={vendor.title}
                     title={vendor.title}
-                    style={vendor.icon_height ? { height: `${vendor.icon_height}px` } : undefined}
+                    style={vendor.icon_height ? { height: `${vendor.icon_height}` } : undefined}
 
                   />
                 )}

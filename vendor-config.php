@@ -44,7 +44,7 @@ class Vendor {
 
     public $icons;
 
-    public $icon_height = '30';
+    public $icon_height = '30px';
 
     public $hide_form_title = 'yes';
 
@@ -99,6 +99,7 @@ $cc_vendors = [
         'method' => 'alipay',
         'checked' => 'yes',
         'hide_form_title' => 'no',
+        'icon_height' => '35px',
         'icon' => 'images/alipay-logo.png',
     ]),
     
@@ -109,6 +110,7 @@ $cc_vendors = [
         'country' => '',
         'enabled' => 'no',
         'checked' => 'no',
+        'icon_height' => '35px',
         'icon' => 'images/wechatpay-logo.png',
     ]),
     
@@ -144,8 +146,8 @@ $cc_vendors = [
         'country' => '',
         'enabled' => 'no',
         'checked' => 'no',
+        'icon_height' => '25px',
         'icon' => 'images/venmo-logo.png',
-        'icon_height' => '20',
         'processPaymentBody' => function ($params, $order, $settings) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
@@ -161,7 +163,6 @@ $cc_vendors = [
         'enabled' => 'no',
         'checked' => 'no',
         'icon' => 'images/cashapp-logo.png',
-        'icon_height' => '22',
         'processPaymentBody' => function ($params, $order, $settings) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
@@ -180,7 +181,7 @@ $cc_vendors = [
         'country' => '',
         'enabled' => 'no',
         'checked' => 'no',
-        'icons' => ['images/visa-logo.jpg', 'images/master-logo.jpg', 'images/amex-logo.jpg', 'images/discover-logo.jpg'],
+        'icons' => ['images/visa-logo.png', 'images/master-logo.png', 'images/amex-logo.png', 'images/discover-logo.png'],
         'processPaymentBody' => function ($params, $order, $settings) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';

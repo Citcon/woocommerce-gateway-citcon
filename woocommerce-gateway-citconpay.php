@@ -385,14 +385,14 @@ function init_woocommerce_citconpay() {
                                             >
                                                 <?php foreach ($icons as $ico) { ?>
                                                     <img src="<?php echo $ico; ?>"
-                                                        style="height: <?php echo $icon_height; ?>px; margin-left: -2px; margin-right: 6px;"
+                                                        style="height: <?php echo $icon_height; ?>; margin-left: -2px; margin-right: 6px;"
                                                     />
                                                 <?php } ?>
                                             </div>
                                         <?php } else { ?>
 
                                             <img src="<?php echo $icon; ?>" 
-                                            style="height: <?php echo $icon_height; ?>px; margin-left: -2px;" alt="Citcon Pay"
+                                            style="height: <?php echo $icon_height; ?>; margin-left: -2px;" alt="Citcon Pay"
                                             title="<?php esc_html_e($title); ?>"
                                             />
                                             <!-- <?php esc_html_e($title); ?>  -->
