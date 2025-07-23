@@ -460,7 +460,7 @@ function has_physical_goods($order) {
 
 function get_reference_code($order_id) {
     if ( is_user_logged_in() && get_current_user_id()) {
-        return $order_id . 'at' . get_current_user_id();
+        return get_current_user_id();
     } else {
         $timestamp = time();
         return $order_id . 'at' . $timestamp;
