@@ -207,8 +207,6 @@ function process_billing_address($params, $order) {
     $goods = [];
     $data = [];
 
-    $apportioned_tax = false;
-
     $order_data = $order -> data;
     $factor = get_currency_unit_conversion_factor($order->get_currency());
 
@@ -263,13 +261,7 @@ function process_billing_address($params, $order) {
                 'unit_amount'           => floor($unit_amount),
                 'total_discount_amount' => round($total_discount_amount),
             ];
-
-            if ($apportioned_tax) {
-                $unit_tax_amount = $total_tax_amount / $quantity;
-                $data_item['unit_tax_amount'] = floor($unit_tax_amount);
-                $data_item['total_tax_amount'] = round($total_tax_amount);
-            }
-
+            
             array_push($data, $data_item);
         }
     }
@@ -290,10 +282,6 @@ function process_billing_address($params, $order) {
             
             $sum_total_tax_amount += $total_tax_amount;
 
-            if ($apportioned_tax) {
-                $data_item['unit_tax_amount'] = $total_tax_amount;
-                $data_item['total_tax_amount'] = $total_tax_amount;
-            }
             
             array_push($data, $data_item);
         }
@@ -308,7 +296,7 @@ function process_billing_address($params, $order) {
         if (isset($_shipping)) {
             $_shipping_country = $order->get_shipping_country();
             $_shipping_state = get_country_state_name($_shipping_country, $order->get_shipping_state());
-
+            $_shipping_amount = ($order->get_shipping_total()) * $factor;
 
             $shipping = [
                 'first_name'    => $order->get_shipping_first_name(),
@@ -318,25 +306,15 @@ function process_billing_address($params, $order) {
                 'country'       => $_shipping_country,
                 'city'          => $order->get_shipping_city(),
                 'state'         => $_shipping_state,
+                'amount'        => floor($_shipping_amount),
                 'street'        => $order->get_shipping_address_1(),
                 'street2'       => $order->get_shipping_address_2(),
                 'zip'           => $order->get_shipping_postcode(),
                 'type'          => 'SHIPPING', // shipping, pickup_in_person, default is shipping
             ];
 
-            $_shipping_amount = ($order->get_shipping_total()) * $factor;
             $_shipping_tax_amount = ($order->get_shipping_tax()) * $factor;
-
-            if ($apportioned_tax) {
-                $shipping['amount'] = floor($_shipping_amount * $_shipping_tax_amount);
-            } else {
-                $shipping['amount'] = floor($_shipping_amount);
-                $shipping['tax_amount'] = floor($_shipping_tax_amount);
-            }
-
-            
-
-            $sum_total_tax_amount += $shipping['tax_amount'];
+            $sum_total_tax_amount += $_shipping_tax_amount;
 
             $shipping = array_filter($shipping, function($v) { return !is_null($v); });
 
@@ -344,13 +322,11 @@ function process_billing_address($params, $order) {
         }
     }
 
-    if ($apportioned_tax) {
-        $goods = verify_and_smooth_amount($order, $goods, $factor);
-    } else {
-        $goods['tax'] = [
-            'total' => round($sum_total_tax_amount)
-        ];
-    }
+    $goods['tax'] = [
+        'total' => round($sum_total_tax_amount)
+    ];
+
+    $goods = verify_and_smooth_amount($order, $goods, $factor);
 
     $params['goods'] = json_encode($goods);
 
@@ -372,74 +348,40 @@ function verify_and_smooth_amount($order, $goods, $factor) {
 
     $order_total = round($order->get_total() * $factor);
     $order_total_tax = round($order->get_total_tax() * $factor);
-    $shipping_amount = isset($goods['shipping']['amount']) ? round($goods['shipping']['amount']) : 0;
+    $shipping_amount = isset($goods['shipping']['amount']) ? $goods['shipping']['amount'] : 0;
 
-    $total_tax_sum = 0;
+    $total_unit_amount = 0;
+    $total_discount_amount = 0;
     foreach ($goods['data'] as $item) {
-        // if (isset($item['total_tax_amount'])) {
-        //     $total_tax_sum += $item['total_tax_amount'];
-        // }
-        
-        $total_tax_sum += $item['quantity'] * $item['unit_tax_amount'];
+        $total_unit_amount += $item['quantity'] * $item['unit_amount'];
+        $total_discount_amount += $item['total_discount_amount'];
     }
 
-    $shipping_tax = ($order -> get_shipping_tax()) * $factor;
-    $tax_diff = $order_total_tax - $total_tax_sum - $shipping_tax;
+    $total_goods = $total_unit_amount + $shipping_amount + $order_total_tax - $total_discount_amount;
 
-    if (abs($tax_diff) > 0 || $shipping_tax > 0) {
-        $target_index = null;
-        foreach ($goods['data'] as $idx => $item) {
-            if ($item['quantity'] == 1) {
-                $target_index = $idx;
-                break;
+    $_diff = $total_goods - $order_total;
+
+    if (abs($_diff) > 0) {
+        // add adjustment goods item
+
+        // if existing goods discount, add to adjustment , else add a new adjustment item
+        foreach ($goods['data'] as $k => $item) {
+            if (isset($item['total_discount_amount']) && $item['total_discount_amount'] > abs($_diff)) {
+                // add adjustment to existing item
+                $goods['data'][$k]['total_discount_amount'] += ($_diff > 0 ? $_diff : -$_diff);
+                return $goods;
             }
         }
 
-        if ($target_index !== null) {
-            $goods['data'][$target_index]['unit_tax_amount'] += $tax_diff + $shipping_tax;
-            $goods['data'][$target_index]['total_tax_amount'] = $goods['data'][$target_index]['unit_tax_amount'];
-        } else {
-            // method 1:
-            // insert new one item
-
-            // method 2:    
-            // combine all item which quantity > 1
-
-            $merge_method = 2;
-
-            if ($merge_method == 1) {
-                array_push( $goods['data'], [
-                    'sku' => '',
-                    'name' => 'Adjustment Amount',
-                    'quantity' => 1,
-                    'product_type' => 'physical',
-                    'unit_amount' => $tax_diff + $shipping_tax,
-                    'unit_tax_amount' => 0,
-                    'total_tax_amount' => 0,
-                    'total_discount_amount' => 0,
-                ]);
-            } else {
-                foreach ($goods['data'] as $idx => $item) {
-                    $quantity = $item['quantity'];
-                    if ($quantity > 1) {
-                        $goods['data'][$idx]['unit_amount'] *= $quantity;
-                        $goods['data'][$idx]['unit_tax_amount'] = $goods['data'][$idx]['total_tax_amount'];
-                        $goods['data'][$idx]['quantity'] = 1;
-                    }
-                }
-
-                // add shipping tax to the last item
-                $last_index = count($goods['data']) - 1;
-                if ($last_index >= 0) {
-                    $goods['data'][$last_index]['unit_tax_amount'] += $shipping_tax;
-                    $goods['data'][$last_index]['total_tax_amount'] = $shipping_tax;
-                }
-            }
-        }
-
-        if (isset($goods['shipping']['amount'])) {
-            $goods['shipping']['amount'] -= $shipping_tax;
-        }
+        // no existing discount item, add a new adjustment item
+        $goods['data'][] = [
+            'sku' => '',
+            'name' => 'Adjustment',
+            'quantity' => 1,
+            'product_type' => 'physical',
+            'unit_amount' => 1,
+            'total_discount_amount' => (($_diff > 0 ? $_diff : -$_diff) + 1),
+        ];
     }
 
     return $goods;

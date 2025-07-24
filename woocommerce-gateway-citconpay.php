@@ -263,7 +263,12 @@ function init_woocommerce_citconpay() {
 			$nhp_arg['ipn_url'] = urlencode($this->notify_url);
             $result_url = urlencode($order->get_checkout_order_received_url());
 			$nhp_arg['callback_url_success'] = $nhp_arg['callback_url_fail'] = $nhp_arg['mobile_result_url'] = $result_url;
+            
+            // cancel to cart
             $nhp_arg['callback_url_cancel'] = urlencode($order->get_cancel_order_url());
+
+            // cancel to checkout
+            // $nhp_arg['callback_url_cancel'] = urlencode($order->get_checkout_payment_url());
 
 			//$nhp_arg['show_url']=$order->get_cancel_order_url();
 			$nhp_arg['reference'] = $orderid;
