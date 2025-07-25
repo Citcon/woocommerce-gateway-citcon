@@ -124,7 +124,8 @@ function init_woocommerce_citconpay() {
          * @param array $context The context for the payment process.
          */
         function checkout_process_payment_with_context($context) {
-           //
+           
+           // check payment
         }
         
 
@@ -247,7 +248,7 @@ function init_woocommerce_citconpay() {
 
 
 			$order = new WC_Order($order_id);
-            $paymentData = $order->data;
+            $paymentData = $order->get_data();
 
             $time_stamp = gmdate('YmdHis');
 			$orderid = $time_stamp . '-' . $order_id;
@@ -256,7 +257,8 @@ function init_woocommerce_citconpay() {
 
 			$nhp_arg = [];
 			$nhp_arg['currency'] = $currency;
-			$oder_total = ( WC()->version < '2.7.0' ) ? $order->order_total : $order->get_total();
+
+            $oder_total = $order->get_total();
 
             $nhp_arg['amount'] = $oder_total * $factor;
 
@@ -358,60 +360,66 @@ function init_woocommerce_citconpay() {
 			endif;
 			?>
 			<fieldset>
-				<legend><label><?php esc_html_e('Method of payment'); ?><span class="required">*</span></label></legend>
-				<ul class="wc_payment_methods payment_methods methods">
-                    <?php 
-                    foreach (get_vendor_list() as $key => $value) {
-                        $method = $value -> method;
-                        $title = $value -> title;
-                        $currency = get_option('woocommerce_currency');
-                        $icon = $value -> icon;
-                        $icons = $value -> icons;
-                        $icon_height = $value -> icon_height;
+				<legend>
+                    <label>
+                        <?php esc_html_e('Method of payment'); ?>
+                        <span class="required">*</span>
+                    </label>
+                    </legend>
+                        <ul class="wc_payment_methods payment_methods methods">
+                            <?php 
+                            foreach (get_vendor_list() as $key => $value) {
+                                $method = $value -> method;
+                                $title = $value -> title;
+                                $currency = get_option('woocommerce_currency');
+                                $icon = $value -> icon;
+                                $icons = $value -> icons;
+                                $icon_height = $value -> icon_height;
 
-                        if (strcmp($this->settings[$method],'yes')==0 && in_array($currency, $value -> currency)) { ?>
-                            <li class="wc_payment_method">
-                                <div style="display: flex; align-items: center;">
-                                    <input id="citconpay_pay_method_<?php echo $method; ?>" 
-                                            class="input-radio" 
-                                            name="vendor" 
-                                            value="<?php echo $method; ?>"
-                                            data-order_button_text="" 
-                                            type="radio" required 
-                                        <?php if (strcmp($this->settings['selectedMethod'],$method)==0) { ?>
-                                            checked="checked"
-                                        <?php } ?>
-                                        >
-
-                                    <label for="citconpay_pay_method_<?php echo $method; ?>">
-                                        <?php if (isset($icons) && is_array($icons)) { ?>
-                                            <div class="citconpay-icons" style="display: flex; align-items: center; "
-                                            title="<?php esc_html_e($title); ?>"
-                                            >
-                                                <?php foreach ($icons as $ico) { ?>
-                                                    <img src="<?php echo $ico; ?>"
-                                                        style="height: <?php echo $icon_height; ?>; margin-left: -2px; margin-right: 6px;"
-                                                    />
+                                if (strcmp($this->settings[$method],'yes')==0 && in_array($currency, $value -> currency)) { ?>
+                                    <li class="wc_payment_method">
+                                        <div style="display: flex; align-items: center;">
+                                            <input id="citconpay_pay_method_<?php echo $method; ?>" 
+                                                    class="input-radio" 
+                                                    name="vendor" 
+                                                    value="<?php echo $method; ?>"
+                                                    data-order_button_text="" 
+                                                    type="radio" required 
+                                                <?php if (strcmp($this->settings['selectedMethod'],$method)==0) { ?>
+                                                    checked="checked"
                                                 <?php } ?>
-                                            </div>
-                                        <?php } else { ?>
+                                                >
 
-                                            <img src="<?php echo $icon; ?>" 
-                                            style="height: <?php echo $icon_height; ?>; margin-left: -2px;" alt="Citcon Pay"
-                                            title="<?php esc_html_e($title); ?>"
-                                            />
-                                            <!-- <?php esc_html_e($title); ?>  -->
+                                            <label for="citconpay_pay_method_<?php echo $method; ?>">
+                                                <?php if (isset($icons) && is_array($icons)) { ?>
+                                                    <div class="citconpay-icons" style="display: flex; align-items: center; "
+                                                    title="<?php esc_html_e($title); ?>"
+                                                    >
+                                                        <?php foreach ($icons as $ico) { ?>
+                                                            <img src="<?php echo $ico; ?>"
+                                                                style="height: <?php echo $icon_height; ?>; margin-left: -2px; margin-right: 6px;"
+                                                            />
+                                                        <?php } ?>
+                                                    </div>
+                                                <?php } else { ?>
 
-                                        <?php } ?>
+                                                    <img src="<?php echo $icon; ?>" 
+                                                    style="height: <?php echo $icon_height; ?>; margin-left: -2px;" alt="Citcon Pay"
+                                                    title="<?php esc_html_e($title); ?>"
+                                                    />
+                                                    <!-- <?php esc_html_e($title); ?>  -->
 
-                                    </label>
-                                    
-                                </div>
-                            </li>
-                        <?php } ?>
-                    <?php } ?>
-				</ul>
-				<div class="clear"></div>
+                                                <?php } ?>
+
+                                            </label>
+                                            
+                                        </div>
+                                    </li>
+                                <?php } ?>
+                            <?php } ?>
+                        </ul>
+                    <div class="clear">
+                </div>
 			</fieldset>
 			<?php
 		}
@@ -567,8 +575,8 @@ function init_woocommerce_citconpay() {
 			return false;
 		}
 
-		private function wc_citcon_log($messge) {
-			error_log(WC_GATEWAY_CITCON_LOG . " $messge");
+		private function wc_citcon_log($message) {
+			error_log(WC_GATEWAY_CITCON_LOG . " $message");
 		}
 
 

@@ -90,7 +90,7 @@ final class WC_Gateway_Citcon_Blocks_Support extends AbstractPaymentMethodType {
         return [
             'title'       => $this->get_setting( 'title', 'CitconPay' ),
             'description' => $this->get_setting( 'description', 'Pay with CitconPay' ),
-            'vendors'     => get_vendor_list(),
+            'vendors'     => get_selected_vendor_list($this->settings),
             'selectedMethod'     => $this->get_setting( 'selectedMethod', '' ),
             'supports'    => ['products'],
             'currency'    => get_woocommerce_currency(),

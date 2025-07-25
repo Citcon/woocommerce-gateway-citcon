@@ -166,6 +166,7 @@ $cc_vendors = [
         'processPaymentBody' => function ($params, $order, $settings) {
             $params['country'] = 'US';
             $params['auto_capture'] = 'true';
+            $params['consumer[reference]'] = get_reference_code($order->get_id());
             return $params;
         },
     ]),
@@ -426,6 +427,22 @@ function get_vendor_list() {
     }
 
     return $cc_vendors;
+}
+
+function get_selected_vendor_list($settings) {
+    // find enabled = true vendors
+     $selected = [];
+     $all_list = get_vendor_list();
+    foreach ( $all_list as $key => $value) {
+        $method = $value -> method;
+        $currency = get_option('woocommerce_currency');
+
+        if (strcmp($settings[$method],'yes')==0 && in_array($currency, $value -> currency)) {
+            array_push($selected, $value);
+        }
+
+    }
+    return $selected;
 }
 
 function get_form_fields() {
